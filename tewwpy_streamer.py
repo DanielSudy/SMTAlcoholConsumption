@@ -8,6 +8,8 @@ import numpy as np
 import pandas as pd
 
 
+#JUST SOME TESTS TO GET AN INSIGHT HOW TWEEPY WORKS
+
 
 class TwitterClient():
     def __init__(self, twitter_user=None):
@@ -38,7 +40,7 @@ class TwitterClient():
         return home_timeline_tweets
 
 
-# # # # TWITTER AUTHENTICATER # # # #
+
 class TwitterAuthenticator():
 
     def authenticate_twitter_app(self):
@@ -65,7 +67,7 @@ class TwitterStreamer():
         stream.filter(track=hash_tag_list)
 
 
-# # # # TWITTER STREAM LISTENER # # # #
+
 class TwitterListener(StreamListener):
     """
     This is a basic listener that just prints received tweets to stdout.
@@ -113,6 +115,10 @@ class TweetAnalyzer():
 if __name__ == '__main__':
     hash_tag_list = ["party", "alcohol", "drinking", "Drinking games", "beer", "wine"]
     fetched_tweets_filename = "tweets.txt"
+
+    """
+    This section crawls data from live Twitter tweets an safe it to a text file
+    """
 
     twitter_streamer = TwitterStreamer()
     twitter_streamer.stream_tweets(fetched_tweets_filename, hash_tag_list)

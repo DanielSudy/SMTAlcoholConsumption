@@ -77,6 +77,7 @@ class MyStreamListener(tweepy.StreamListener):
 
 
 if __name__ == '__main__':
+
     print("Run Listener for crawling twitter data")
 
     #Define search content
@@ -97,6 +98,5 @@ if __name__ == '__main__':
         jHandler = HandleDataFormat()
         pdstruct = jHandler.init()
         print(pdstruct.head(100))
-
 
 

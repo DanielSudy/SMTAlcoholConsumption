@@ -6,6 +6,15 @@ import pandas as pd
 import json
 import numpy as np
 
+class InformationChecker():
+    def checkValidation(self,tweet):
+        if tweet['place'] != None:
+            print("CountryCode: "+tweet['place']['country_code'])
+            return True
+        else:
+            return False
+
+
 
 class TwitterAuthenticator():
 
@@ -26,26 +35,32 @@ class TwitterSearcher():
         tweetCounter = 0
         search_results = []
 
+        check = InformationChecker();
+
         file = open("search_results.txt", "w")
 
         if not geolocation:
             print("Start sreaching without geo boundary")
             for tweet in tweepy.Cursor(api.search, q=query,lang="en").items(count):
-                tweetCounter=tweetCounter+1
                 #print(tweet.user.screen_name, "Tweeted:", tweet.text, "AT: ",tweet.created_at)
                 tweetToWrite = tweet._json
-                file.write(json.dumps(tweetToWrite) + '\n')
+
+                if(check.checkValidation(tweetToWrite)==True):
+                    tweetCounter = tweetCounter + 1
+                    file.write(json.dumps(tweetToWrite) + '\n')
 
 
         else:
             print("Start sreaching with geo boundary")
             for tweet in tweepy.Cursor(api.search, q=query, geocode=geolocation, lang="en").items(count):
-                tweetCounter = tweetCounter + 1
                 #print(tweet.user.screen_name, "Tweeted:", tweet.text, "AT: ",tweet.created_at)
                 tweetToWrite = tweet._json
-                file.write(json.dumps(tweetToWrite) + '\n')
 
-        print("Now "+str(tweetCounter)+ " tweets are collected -> Write to JSON file")
+                if (check.checkValidation(tweetToWrite) == True):
+                    tweetCounter = tweetCounter + 1
+                    file.write(json.dumps(tweetToWrite) + '\n')
+
+        print("Now "+str(tweetCounter)+ " tweets are collected from ["+str(count)+"] -> Write to JSON file")
         with open('search_results.json', 'w') as f:
             json.dump(search_results, f)
 
@@ -53,10 +68,10 @@ class TwitterSearcher():
 
 
 if __name__ == '__main__':
-    query = "alcohol OR beer OR wine OR (alcohol AND party) OR (drinking AND alcohol) OR drinking)"
+    query = "alcohol OR beer OR wine OR drunk OR drinking OR drinks OR hangover OR  (alcohol AND party) OR (drinking AND alcohol) OR (party AND drinking)"
     language="en"
     geolocation=""
-    count=200
+    count=50
 
     searcher = TwitterSearcher()
     searcher.search_tweets_(query,language,geolocation,count)

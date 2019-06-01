@@ -62,24 +62,16 @@ class MySQLWriter():
             database=self.database
         )
 
-    def writeStatement(self):
+    def writeStatement(self,query,args):
         mycursor=self.mydb.cursor()
-        sql="INSERT INTO data_scr_tweets (CreationDate, TweetID, UserName, CountryCode) VALUES(%s, %i, %s, %s)"
-        val=("2019-06-01 00:00:00",100,"DSudy","AT")
+        """
+        query = "INSERT INTO data_scr_tweets(CreationDate,TweetID,UserName,UserFollowerCount,UserFriendCount,UsedDevice,Tweet,ReplayID,CountryName,CountryCode,GeoLong,GeoLat) " \
+                "VALUES(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)"
+        args = ("2019-06-01 00:00:00", 99, "TEST", 0,1,"WEB","EIN TWWET",666,"ÖSTERREICH","AT",14.56,16.3)
+        """
 
-        sql_select_Query = "select * from data_scr_tweets"
-        cursor = self.mydb.cursor()
-        cursor.execute(sql_select_Query)
-        records = cursor.fetchall()
-        print("Total number of rows in python_developers is - ", cursor.rowcount)
-        print("Printing each row's column values i.e.  developer record")
-        for row in records:
-            print("CreationDtae = ", row[0], )
-            print("TweetID = ", row[1])
-            print("USerName  = ", row[2])
-            print("CountryCOde  = ", row[3], "\n")
-        cursor.close()
-
+        mycursor.execute(query, args)
+        self.mydb.commit()
 
 
 if __name__ == '__main__':
@@ -91,8 +83,19 @@ if __name__ == '__main__':
     pdstruct = jHandler.setupDataStrcuture("search_results.txt")
     print(pdstruct.head(10))
 
-    textAnalyzer.start(pdstruct['text'])
+    #textAnalyzer.start(pdstruct['text'])
+
+    #Write the dataframe to MySQL database
     sql = MySQLWriter()
-    sql.writeStatement()
+    query = "INSERT INTO data_scr_tweets(CreationDate,TweetID,UserName,UserFollowerCount,UserFriendCount,UsedDevice,Tweet,ReplayID,CountryName,CountryCode,GeoLong,GeoLat) " \
+            "VALUES(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)"
+    count_row = pdstruct.shape[0]
+    for i in range(0, count_row):
+        print(str(pdstruct['source'].values[i]))
+        args = (str(pdstruct['created'].values[i]),str(pdstruct['id'].values[i]),str(pdstruct['user'].values[i]),str(pdstruct['user_follower_cnt'].values[i]),str(pdstruct['user_friend_cnt'].values[i]),
+                str(pdstruct['source'].values[i]),str(pdstruct['text'].values[i]),str(pdstruct['replay'].values[i]),str(pdstruct['country'].values[i]),str(pdstruct['country_code'].values[i]),
+                str(pdstruct['coordinates'].values[i]['coordinates'][0]),str(pdstruct['coordinates'].values[i]['coordinates'][1]))
+        #sql.writeStatement(query, args)
+
 
 

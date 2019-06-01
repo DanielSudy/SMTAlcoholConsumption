@@ -9,7 +9,7 @@ import numpy as np
 class InformationChecker():
     def checkValidation(self,tweet):
         if tweet['place'] != None:
-            print("CountryCode: "+tweet['place']['country_code'])
+            #print("CountryCode: "+tweet['place']['country_code'])
             return True
         else:
             return False
@@ -29,11 +29,12 @@ class TwitterSearcher():
         self.twitter_autenticator = TwitterAuthenticator()
 
 
-    def search_tweets_(self, query, language, geolocation,count):
+    def search_tweets_(self, query, language, geolocation,count,untildate):
 
-        api = tweepy.API( self.twitter_autenticator.authenticate_twitter_app())
+        api = tweepy.API( self.twitter_autenticator.authenticate_twitter_app(),wait_on_rate_limit=True)
         tweetCounter = 0
         search_results = []
+        searchedTweets=0
 
         check = InformationChecker();
 
@@ -44,7 +45,9 @@ class TwitterSearcher():
             for tweet in tweepy.Cursor(api.search, q=query,lang="en").items(count):
                 #print(tweet.user.screen_name, "Tweeted:", tweet.text, "AT: ",tweet.created_at)
                 tweetToWrite = tweet._json
-
+                searchedTweets=searchedTweets+1
+                if(searchedTweets%100==0):
+                    print(str(searchedTweets)+" still investigated -> "+str(tweetCounter)+ " are applicable")
                 if(check.checkValidation(tweetToWrite)==True):
                     tweetCounter = tweetCounter + 1
                     file.write(json.dumps(tweetToWrite) + '\n')
@@ -55,7 +58,9 @@ class TwitterSearcher():
             for tweet in tweepy.Cursor(api.search, q=query, geocode=geolocation, lang="en").items(count):
                 #print(tweet.user.screen_name, "Tweeted:", tweet.text, "AT: ",tweet.created_at)
                 tweetToWrite = tweet._json
-
+                searchedTweets = searchedTweets + 1
+                if (searchedTweets%100 == 0):
+                    print(str(searchedTweets) + " still investigated -> " + str(tweetCounter) + " are applicable")
                 if (check.checkValidation(tweetToWrite) == True):
                     tweetCounter = tweetCounter + 1
                     file.write(json.dumps(tweetToWrite) + '\n')
@@ -68,10 +73,11 @@ class TwitterSearcher():
 
 
 if __name__ == '__main__':
-    query = "alcohol OR beer OR wine OR drunk OR drinking OR drinks OR hangover OR  (alcohol AND party) OR (drinking AND alcohol) OR (party AND drinking)"
+    query = "alcohol OR beer OR wine OR drunk OR (drinking AND alcohol)"
     language="en"
     geolocation=""
-    count=50
+    untildate="2019-01-01"
+    count=10000
 
     searcher = TwitterSearcher()
-    searcher.search_tweets_(query,language,geolocation,count)
+    searcher.search_tweets_(query,language,geolocation,count,untildate)

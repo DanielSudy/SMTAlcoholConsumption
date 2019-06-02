@@ -8,7 +8,7 @@ import numpy as np
 
 class InformationChecker():
     def checkValidation(self,tweet):
-        if tweet['place'] != None:
+        if tweet['place'] != None and  tweet['coordinates'] != None:
             #print("CountryCode: "+tweet['place']['country_code'])
             return True
         else:
@@ -29,7 +29,7 @@ class TwitterSearcher():
         self.twitter_autenticator = TwitterAuthenticator()
 
 
-    def search_tweets_(self, query, language, geolocation,count,untildate):
+    def search_tweets_(self, query, language, geolocation,count,smax_id):
 
         api = tweepy.API( self.twitter_autenticator.authenticate_twitter_app(),wait_on_rate_limit=True)
         tweetCounter = 0
@@ -38,11 +38,11 @@ class TwitterSearcher():
 
         check = InformationChecker();
 
-        file = open("search_results.txt", "w")
+        file = open("search_results_2.txt", "w")
 
         if not geolocation:
             print("Start sreaching without geo boundary")
-            for tweet in tweepy.Cursor(api.search, q=query,lang="en").items(count):
+            for tweet in tweepy.Cursor(api.search, q=query,lang="en",max_id=smax_id).items(count):
                 #print(tweet.user.screen_name, "Tweeted:", tweet.text, "AT: ",tweet.created_at)
                 tweetToWrite = tweet._json
                 searchedTweets=searchedTweets+1
@@ -55,7 +55,7 @@ class TwitterSearcher():
 
         else:
             print("Start sreaching with geo boundary")
-            for tweet in tweepy.Cursor(api.search, q=query, geocode=geolocation, lang="en").items(count):
+            for tweet in tweepy.Cursor(api.search, q=query, geocode=geolocation, lang="en",max_id=smax_id).items(count):
                 #print(tweet.user.screen_name, "Tweeted:", tweet.text, "AT: ",tweet.created_at)
                 tweetToWrite = tweet._json
                 searchedTweets = searchedTweets + 1
@@ -76,8 +76,8 @@ if __name__ == '__main__':
     query = "alcohol OR beer OR wine OR drunk OR (drinking AND alcohol)"
     language="en"
     geolocation=""
-    untildate="2019-01-01"
-    count=10000
+    maxid="1134606489539293183"
+    count=50000000
 
     searcher = TwitterSearcher()
-    searcher.search_tweets_(query,language,geolocation,count,untildate)
+    searcher.search_tweets_(query,language,geolocation,count,maxid)

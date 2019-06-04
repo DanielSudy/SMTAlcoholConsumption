@@ -11,7 +11,7 @@ from pygal_maps_world.maps import World
 from tweepy_streamer import TwitterAuthenticator
 
 TRACKING_KEYWORDS = ['h']
-OUTPUT_FILE = "eu_election.txt"
+OUTPUT_FILE = "livestreamer.txt"
 TWEETS_TO_CAPTURE = 50
 
 pd.set_option('display.width', 400)
@@ -61,10 +61,16 @@ class MyStreamListener(tweepy.StreamListener):
     def on_status(self, status):
         tweet = status._json
         self.file.write(json.dumps(tweet) + '\n')
-        self.num_tweets += 1
+
+        if tweet['place'] != None and tweet['coordinates'] != None:
+            print("No new data")
+        else:
+            print("Add data")
+        #self.num_tweets += 1
 
         # Stops streaming when it reaches the limit
         if self.num_tweets <= TWEETS_TO_CAPTURE:
+
             if self.num_tweets % 10 == 0:  # just to see some progress...
                 print('Numer of tweets captured so far: {}'.format(self.num_tweets))
             return True
@@ -82,9 +88,9 @@ if __name__ == '__main__':
 
     #Define search content
     region_location = [-27.4,35.8,47.0,72.7]
-    hash_tags = ["alcohol","driniking","party"]
+    hash_tags = ["alcohol","beer","wine"," drinking alcohol","party"]
 
-    capturing = False
+    capturing = True
 
     if capturing==True:
         l = MyStreamListener()

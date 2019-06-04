@@ -29,7 +29,7 @@ class TwitterSearcher():
         self.twitter_autenticator = TwitterAuthenticator()
 
 
-    def search_tweets_(self, query, language, geolocation,count,smax_id):
+    def search_tweets_(self, query, language, geolocation,count,smax_id,filename):
 
         api = tweepy.API( self.twitter_autenticator.authenticate_twitter_app(),wait_on_rate_limit=True)
         tweetCounter = 0
@@ -38,11 +38,11 @@ class TwitterSearcher():
 
         check = InformationChecker();
 
-        file = open("search_results_2.txt", "w")
+        file = open(filename, "w")
 
         if not geolocation:
             print("Start sreaching without geo boundary")
-            for tweet in tweepy.Cursor(api.search, q=query,lang="en",max_id=smax_id).items(count):
+            for tweet in tweepy.Cursor(api.search, q=query,lang="en",include_entities=True, since_id=smax_id,tweet_mode='extended').items(count):
                 #print(tweet.user.screen_name, "Tweeted:", tweet.text, "AT: ",tweet.created_at)
                 tweetToWrite = tweet._json
                 searchedTweets=searchedTweets+1
@@ -55,7 +55,7 @@ class TwitterSearcher():
 
         else:
             print("Start sreaching with geo boundary")
-            for tweet in tweepy.Cursor(api.search, q=query, geocode=geolocation, lang="en",max_id=smax_id).items(count):
+            for tweet in tweepy.Cursor(api.search, q=query, geocode=geolocation, lang="en",include_entities=True,since_id=smax_id,tweet_mode='extended').items(count):
                 #print(tweet.user.screen_name, "Tweeted:", tweet.text, "AT: ",tweet.created_at)
                 tweetToWrite = tweet._json
                 searchedTweets = searchedTweets + 1
@@ -66,18 +66,18 @@ class TwitterSearcher():
                     file.write(json.dumps(tweetToWrite) + '\n')
 
         print("Now "+str(tweetCounter)+ " tweets are collected from ["+str(count)+"] -> Write to JSON file")
-        with open('search_results.json', 'w') as f:
-            json.dump(search_results, f)
+
 
         print("Sreaching tweets finished")
 
 
 if __name__ == '__main__':
-    query = "alcohol OR beer OR wine OR drunk OR (drinking AND alcohol)"
+    filename="search_results_2.txt"
+    query = "alcohol OR beer OR wine OR drunk OR (drinking AND alcohol) OR (party AND alcohol)"
     language="en"
     geolocation=""
-    maxid="1134606489539293183"
+    maxid="1134840349090824193"
     count=50000000
 
     searcher = TwitterSearcher()
-    searcher.search_tweets_(query,language,geolocation,count,maxid)
+    searcher.search_tweets_(query,language,geolocation,count,maxid,filename)

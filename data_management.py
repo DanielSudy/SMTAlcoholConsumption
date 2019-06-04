@@ -6,6 +6,8 @@ import numpy as np
 import mysql.connector
 import analyzing
 from textblob import TextBlob, Word, Blobber
+import gender_guesser.detector as gender
+import alcohol_search
 
 
 pd.set_option('display.width', 400)
@@ -26,8 +28,12 @@ class HandleDataFormat():
 
         df = pd.DataFrame()
         df['created'] = list(map(lambda tweet: tweet['created_at'], tweets_data))
+        df['account_created'] = list(map(lambda tweet: tweet['user']['created_at']
+        if tweet['user'] != None else '', tweets_data))
         df['id'] = list(map(lambda tweet: tweet['id'], tweets_data))
         df['user'] = list(map(lambda tweet: tweet['user']['name']
+        if tweet['user'] != None else '', tweets_data))
+        df['user_id'] = list(map(lambda tweet: tweet['user']['id']
         if tweet['user'] != None else '', tweets_data))
         df['user_follower_cnt'] = list(map(lambda tweet: tweet['user']['followers_count']
         if tweet['user'] != None else '', tweets_data))
@@ -46,6 +52,27 @@ class HandleDataFormat():
 
 
         return df
+
+class UserAnalysis():
+    def searchUserByID(self,ID):
+        counter=0
+        tweet=""
+        auth = alcohol_search.TwitterAuthenticator()
+        api = tweepy.API(auth.authenticate_twitter_app())
+        user = api.get_user(ID)
+        print(user.name)
+        for status in tweepy.Cursor(api.user_timeline, screen_name=user.screen_name, tweet_mode="extended",q="#gameofthrones").items(1000):
+            counter=counter+1
+            tweet = status.full_text.lower()
+            if (counter % 100 == 0):
+                print(str(counter)+" out of "+str(1000))
+            if((tweet.find("birthday")==1) or (tweet.find("happy")==1) or (tweet.find("congratulation")==1)):
+                print(status.full_text.lower())
+
+
+
+
+
 
 class TextAnalysis():
     def cleanTweet(self,tweet):
@@ -80,6 +107,32 @@ class NumericAnalysis():
             counts = df.country_code.value_counts().tolist()
             return key, counts
 
+class Storage():
+        def storeToDatabase(self,sql,pdstruct):
+
+            print("Start SQL processing...")
+            print("=======================")
+
+            # delte Databse
+            sql.deleteTableContent("data_scr_tweets")
+
+
+            query = "INSERT INTO data_scr_tweets(CreationDate,AccountCreated,TweetID,UserName,UserID,Gender,UserFollowerCount,UserFriendCount,UsedDevice,Tweet,ReplayID,CountryName,CountryCode,GeoLong,GeoLat,Sentiment) " \
+                    "VALUES(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)"
+            count_row = pdstruct.shape[0]
+            for i in range(0, count_row):
+                #print(genderDedector.get_gender(str(pdstruct['user'].values[i]).split(" ")[0]))
+                #print(str(pdstruct['created'].values[i]))
+
+                args = (
+                str(pdstruct['created'].values[i]),str(pdstruct['account_created'].values[i]), str(pdstruct['id'].values[i]), str(pdstruct['user'].values[i]),str(pdstruct['user_id'].values[i]),
+                genderDedector.get_gender(str(pdstruct['user'].values[i]).split(" ")[0]),
+                str(pdstruct['user_follower_cnt'].values[i]), str(pdstruct['user_friend_cnt'].values[i]),
+                str(pdstruct['source'].values[i]), str(pdstruct['text'].values[i]), str(pdstruct['replay'].values[i]),
+                str(pdstruct['country'].values[i]), str(pdstruct['country_code'].values[i]),
+                str(pdstruct['coordinates'].values[i]['coordinates'][0]),
+                str(pdstruct['coordinates'].values[i]['coordinates'][1]), str(pdstruct['sentiment'].values[i]))
+                sql.writeStatement(query, args)
 
 
 class MySQLWriter():
@@ -107,6 +160,12 @@ class MySQLWriter():
         mycursor.execute(query, args)
         self.mydb.commit()
 
+    def deleteTableContent(self,table):
+        mycursor = self.mydb.cursor()
+        var = "DELETE FROM "+table
+        mycursor.execute(var)
+        self.mydb.commit()
+
     def selectStatement(self,query):
         mycursor = self.mydb.cursor()
         mycursor.execute(query)
@@ -121,37 +180,40 @@ if __name__ == '__main__':
     textAnalyzer = TextAnalysis()
     numericAnalyzer = NumericAnalysis()
     graphics = analyzing.GraphicAnalyzer()
+    storage = Storage()
+    users = UserAnalysis()
+    sql = MySQLWriter()
 
-    pdstruct = jHandler.setupDataStrcuture("search_results.txt")
+    genderDedector = gender.Detector(case_sensitive=False)
 
+
+    #WFile to handle
+    pdstruct = jHandler.setupDataStrcuture("search_results_1.txt")
     print("There are "+str(pdstruct.shape[0])+" rows in dataframe")
+    # print(pdstruct.head(5623))
 
 
+    #Start Preporcessing some stuff
+    #===================================================================================================================
     textAnalyzer.start(pdstruct)
 
-
-    #print(pdstruct.head(50))
+    result = sql.selectStatement("select distinct UserID from `data_scr_tweets`")
+    #for row in result:
+        #print(row[0])
+        #users.searchUserByID(row[0])
 
     #Write the dataframe to MySQL database
-    print("Start SQL processing...")
-    print("=======================")
-    sql = MySQLWriter()
-    query = "INSERT INTO data_scr_tweets(CreationDate,TweetID,UserName,UserFollowerCount,UserFriendCount,UsedDevice,Tweet,ReplayID,CountryName,CountryCode,GeoLong,GeoLat,Sentiment) " \
-            "VALUES(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)"
-    count_row = pdstruct.shape[0]
-    for i in range(0, count_row):
-        #print(str(pdstruct['text'].values[i]))
 
-        args = (str(pdstruct['created'].values[i]),str(pdstruct['id'].values[i]),str(pdstruct['user'].values[i]),str(pdstruct['user_follower_cnt'].values[i]),str(pdstruct['user_friend_cnt'].values[i]),
-                str(pdstruct['source'].values[i]),str(pdstruct['text'].values[i]),str(pdstruct['replay'].values[i]),str(pdstruct['country'].values[i]),str(pdstruct['country_code'].values[i]),
-                str(pdstruct['coordinates'].values[i]['coordinates'][0]),str(pdstruct['coordinates'].values[i]['coordinates'][1]),str(pdstruct['sentiment'].values[i]))
-        #sql.writeStatement(query, args)
+    storage.storeToDatabase(sql,pdstruct)
 
 
+
+    #ANALYSIS SECTION
+    #Get data from mysql db and process it
     #Get sentiment order
     #select distinct CountryCode, CountryName, SUM(Sentiment)as Sentiment from `data_scr_tweets`  group by CountryCode order by Sentiment desc
 
-
+    """
     result=sql.selectStatement("select distinct CountryCode, CountryName, SUM(Sentiment)as Sentiment from `data_scr_tweets` where Sentiment=1 group by CountryCode order by Sentiment desc")
     sent_key=[]
     sent_val=[]
@@ -172,3 +234,4 @@ if __name__ == '__main__':
 
     print(sent_key)
     graphics.showBarchart(sent_key, sent_val, "Negative Tweets about alcohol per Country")
+    """

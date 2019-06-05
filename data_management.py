@@ -8,6 +8,7 @@ import analyzing
 from textblob import TextBlob, Word, Blobber
 import gender_guesser.detector as gender
 import alcohol_search
+import face_recognition as recognition
 
 
 pd.set_option('display.width', 400)
@@ -34,6 +35,8 @@ class HandleDataFormat():
         df['user'] = list(map(lambda tweet: tweet['user']['name']
         if tweet['user'] != None else '', tweets_data))
         df['user_id'] = list(map(lambda tweet: tweet['user']['id']
+        if tweet['user'] != None else '', tweets_data))
+        df['user_profil_pic_url'] = list(map(lambda tweet: tweet['user']['profile_image_url_https']
         if tweet['user'] != None else '', tweets_data))
         df['user_follower_cnt'] = list(map(lambda tweet: tweet['user']['followers_count']
         if tweet['user'] != None else '', tweets_data))
@@ -182,7 +185,8 @@ if __name__ == '__main__':
     graphics = analyzing.GraphicAnalyzer()
     storage = Storage()
     users = UserAnalysis()
-    sql = MySQLWriter()
+    faces = recognition.MSAzureFaceRecogntion()
+    #sql = MySQLWriter()
 
     genderDedector = gender.Detector(case_sensitive=False)
 
@@ -190,21 +194,33 @@ if __name__ == '__main__':
     #WFile to handle
     pdstruct = jHandler.setupDataStrcuture("search_results_1.txt")
     print("There are "+str(pdstruct.shape[0])+" rows in dataframe")
-    # print(pdstruct.head(5623))
+    #print(pdstruct.head(10))
 
 
     #Start Preporcessing some stuff
     #===================================================================================================================
     textAnalyzer.start(pdstruct)
 
-    result = sql.selectStatement("select distinct UserID from `data_scr_tweets`")
+    #result = sql.selectStatement("select distinct UserID from `data_scr_tweets`")
     #for row in result:
         #print(row[0])
         #users.searchUserByID(row[0])
 
+
+    count_row = pdstruct.shape[0]
+    for i in range(0, count_row):
+        print(str(pdstruct['user_profil_pic_url'].values[i]))
+
+    image_url = 'https://pbs.twimg.com/profile_images/360996042/IMG_7621_cropped_normal.jpg'
+    #image_url = 'https://upload.wikimedia.org/wikipedia/commons/3/37/Dagestani_man_and_woman.jpg'
+    valid,faceframe=faces.getFaceInfos(image_url)
+    if(valid):
+        print("Status: "+str(valid)+", id="+faceframe['face_id'].values[0]+", age="+str(faceframe['age'].values[0])+", gender="+str(faceframe['gender'].values[0]))
+    else:
+        print("Status: " + str(valid))
     #Write the dataframe to MySQL database
 
-    storage.storeToDatabase(sql,pdstruct)
+    #storage.storeToDatabase(sql,pdstruct)
 
 
 

@@ -8,7 +8,7 @@ import numpy as np
 from pygal_maps_world.maps import World
 
 
-from tweepy_streamer import TwitterAuthenticator
+from alcohol_search import TwitterAuthenticator
 
 TRACKING_KEYWORDS = ['h']
 OUTPUT_FILE = ""

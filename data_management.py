@@ -13,6 +13,7 @@ import working_suit as workingsuit
 import time
 import datetime
 from dateutil.parser import parse
+from mysql.connector import errorcode
 
 
 pd.set_option('display.width', 400)
@@ -78,9 +79,6 @@ class UserAnalysis():
 
 
 
-
-
-
 class TextAnalysis():
     def cleanTweet(self,tweet):
         return ' '.join(re.sub("(@[A-Za-z0-9]+)|([^0-9A-Za-z \t])| (\w+:\ / \ / \S+)", " ", tweet).split())
@@ -90,12 +88,12 @@ class TextAnalysis():
         sentiment= []
         tweet_text=""
         user_name=""
-        print(str(count_row))
 
         for i in range(0, count_row):
             tweet_text=self.cleanTweet(df['text'].values[i])
             user_name=self.cleanTweet(df['user'].values[i])
             creation_date=parse(df['created'].values[i])
+            account_creation=parse(df['account_created'].values[i])
             analysis = TextBlob(tweet_text)
             # set sentiment
             if analysis.sentiment.polarity > 0:
@@ -107,6 +105,7 @@ class TextAnalysis():
             df['text'].values[i] = tweet_text
             df['user'].values[i] = user_name
             df['created'].values[i] = creation_date
+            df['account_created'].values[i] = account_creation
         df['sentiment']=sentiment
 
 class NumericAnalysis():
@@ -126,19 +125,21 @@ class Storage():
             sql.deleteTableContent("data_scr_tweets")
 
 
-            query = "INSERT INTO data_scr_tweets(CreationDate,AccountCreated,TweetID,UserName,UserID,PorfilPictureURL,Gender,UserFollowerCount,UserFriendCount,UsedDevice,Tweet,ReplayID,CountryName,CountryCode,GeoLong,GeoLat,Sentiment) " \
-                    "VALUES(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)"
+            query = "INSERT INTO data_scr_tweets(CreationDate,AccountCreated,TweetID,UserName,UserID,PorfilPictureURL," \
+                    "Gender,UserFollowerCount,UserFriendCount,UsedDevice,Tweet,ReplayID,CountryName," \
+                    "CountryCode,Location,GeoLong,GeoLat,Sentiment) " \
+                    "VALUES(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)"
             count_row = pdstruct.shape[0]
             for i in range(0, count_row):
                 #print(genderDedector.get_gender(str(pdstruct['user'].values[i]).split(" ")[0]))
-                print(str(pdstruct['user'].values[i]))
+                #print(str(pdstruct['user'].values[i]))
 
                 args = (
                 str(pdstruct['created'].values[i]),str(pdstruct['account_created'].values[i]), str(pdstruct['id'].values[i]), str(pdstruct['user'].values[i]),str(pdstruct['user_id'].values[i]),
                 str(pdstruct['user_profil_pic_url'].values[i]),genderDedector.get_gender(str(pdstruct['user'].values[i]).split(" ")[0]),
                 str(pdstruct['user_follower_cnt'].values[i]), str(pdstruct['user_friend_cnt'].values[i]),
                 str(pdstruct['source'].values[i]), str(pdstruct['text'].values[i]), str(pdstruct['replay'].values[i]),
-                str(pdstruct['country'].values[i]), str(pdstruct['country_code'].values[i]),
+                str(pdstruct['country'].values[i]), str(pdstruct['country_code'].values[i]),str(pdstruct['user_loc'].values[i]),
                 str(pdstruct['coordinates'].values[i]['coordinates'][0]),
                 str(pdstruct['coordinates'].values[i]['coordinates'][1]), str(pdstruct['sentiment'].values[i]))
                 sql.writeStatement(query, args)
@@ -165,27 +166,47 @@ class MySQLWriter():
                 "VALUES(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)"
         args = ("2019-06-01 00:00:00", 99, "TEST", 0,1,"WEB","EIN TWWET",666,"ÖSTERREICH","AT",14.56,16.3)
         """
-
-        mycursor.execute(query, args)
-        self.mydb.commit()
+        try:
+            mycursor.execute(query, args)
+            self.mydb.commit()
+            return mycursor.rowcount
+        except:
+            #print(errorcode.ER_BAD_TABLE_ERROR)
+            return -1
 
     def deleteTableContent(self,table):
         mycursor = self.mydb.cursor()
-        var = "DELETE FROM "+table
-        mycursor.execute(var)
-        self.mydb.commit()
+        try:
+            var = "DELETE FROM "+table
+            mycursor.execute(var)
+            self.mydb.commit()
+        except:
+            return -1
 
     def selectStatement(self,query):
-        mycursor = self.mydb.cursor()
-        mycursor.execute(query)
-        records = mycursor.fetchall()
-        return records
+        try:
+            mycursor = self.mydb.cursor()
+            mycursor.execute(query)
+            records = mycursor.fetchall()
+            return records
+        except:
+            return -1
 
     def updateStatement(self,statement):
-        mycursor = self.mydb.cursor()
-        mycursor.execute(statement)
-        self.mydb.commit()
-        return mycursor.rowcount
+        try:
+            mycursor = self.mydb.cursor()
+            mycursor.execute(statement)
+            self.mydb.commit()
+            return mycursor.rowcount
+        except:
+            return -1
+
+    def createTableStatement(self,statement):
+        try:
+            mycursor = self.mydb.cursor()
+            mycursor.execute(statement)
+        except:
+            return -1
 
 
 if __name__ == '__main__':
@@ -207,8 +228,10 @@ if __name__ == '__main__':
 
     do_general_tweet_db_stoarage=False
     do_face_reco = False
-    do_graphical_analysis = True
-    do_sentiment_analysis = False
+    do_graphical_analysis = False
+    do_user_db_exctraction = False
+    do_country_db_extraction = False
+    do_tweets_per_country_db_extraction = True
 
 
     #WFile to handle
@@ -219,16 +242,84 @@ if __name__ == '__main__':
 
     #Start Preporcessing some stuff
     #===================================================================================================================
-    if(do_sentiment_analysis==True):
-        textAnalyzer.start(pdstruct)
+
 
 
 
     # Write the dataframe to MySQL database
     # ===================================================================================================================
     if(do_general_tweet_db_stoarage==True):
+        textAnalyzer.start(pdstruct)
         storage.storeToDatabase(sql,pdstruct)
 
+    if(do_user_db_exctraction==True):
+        sqlUserTable="CREATE TABLE IF NOT EXISTS `data_scr_userinfo` (`UserID` int(100) NOT NULL," \
+                 "`UserName` varchar(255) NOT NULL," \
+                 "`NGender` varchar(50) NOT NULL," \
+                 "`FGender` varchar(50) NOT NULL," \
+                 "`MeanGender` varchar(50) NOT NULL," \
+                 "`FAge` float NOT NULL," \
+                 "`Tweets` int(100) NOT NULL," \
+                 "`Rating` int(100) NOT NULL,"\
+                 "`ProfilPictureURL` varchar(500) NOT NULL," \
+                 "`AccountCreated` datetime NOT NULL,PRIMARY KEY (`UserID`)) ENGINE=InnoDB DEFAULT CHARSET=latin1"
+        sql.createTableStatement(sqlUserTable)
+
+        select="SELECT DISTINCT UserID, UserName, Gender, COUNT(UserName) as Teets, SUM(Sentiment) as Rating, PorfilPictureURL, AccountCreated  FROM `data_scr_tweets` GROUP BY UserID"
+        result = sql.selectStatement(select)
+        resCount=0
+        query = "INSERT INTO data_scr_userinfo(UserID,UserName,NGender,Tweets,Rating,ProfilPictureURL,AccountCreated) " \
+                "VALUES(%s,%s,%s,%s,%s,%s,%s)"
+        for row in result:
+            args = (str(row[0]),str(row[1]),str(row[2]),str(row[3]),str(row[4]),str(row[5]),str(row[6]))
+            res=sql.writeStatement(query, args)
+            if(res !=-1):
+                resCount=resCount+res
+        print(str(resCount)+" users are added to user table")
+
+    if(do_country_db_extraction == True):
+        sqlUserCountries ="CREATE TABLE IF NOT EXISTS `data_scr_usercountries` (`UserID` int(100) NOT NULL," \
+                              "`CountryName` varchar(255) NOT NULL," \
+                              "`CountryCode` varchar(20) NOT NULL," \
+                              "`Location` varchar(500) NOT NULL," \
+                              "`GeoLong` float NOT NULL," \
+                              "`GeoLat` float NOT NULL,PRIMARY KEY (`UserID`)) ENGINE=InnoDB DEFAULT CHARSET=latin1"
+        sql.createTableStatement(sqlUserCountries)
+
+        select="SELECT DISTINCT UserID, CountryName, CountryCode, Location, GeoLong, GeoLat FROM `data_scr_tweets` GROUP BY UserID"
+        result = sql.selectStatement(select)
+        resCount = 0
+        query = "INSERT INTO data_scr_usercountries(UserID,CountryName,CountryCode,Location,GeoLong,GeoLat) " \
+                "VALUES(%s,%s,%s,%s,%s,%s)"
+        for row in result:
+            args = (str(row[0]), str(row[1]), str(row[2]), str(row[3]), str(row[4]), str(row[5]))
+            res = sql.writeStatement(query, args)
+            if (res != -1):
+                resCount = resCount + res
+        print(str(resCount) + " users are added to country table")
+
+    if (do_tweets_per_country_db_extraction == True):
+        sqlCountryStatistic ="CREATE TABLE `data_scr_country_statistic` (`CountryCode` varchar(20) NOT NULL," \
+                             "`CountryName` varchar(255) NOT NULL," \
+                             "`PosSentiment` int(11) NOT NULL," \
+                             "`NegSentiment` int(11) NOT NULL," \
+                             "`TweetCount` int(11) NOT NULL,PRIMARY KEY (`CountryCode`)) ENGINE=InnoDB DEFAULT CHARSET=latin1"
+        sql.createTableStatement(sqlCountryStatistic)
+
+        select = "SELECT DISTINCT CountryCode, CountryName,COUNT(CountryCode) as TweetCount," \
+                 " SUM(CASE WHEN Sentiment<0 THEN Sentiment ELSE 0 END) as NegSentiment," \
+                 "SUM(CASE WHEN Sentiment>=0 THEN Sentiment ELSE 0 END) as PosSentiment FROM `data_scr_tweets`GROUP BY CountryCode"
+        result = sql.selectStatement(select)
+        resCount = 0
+        query = "INSERT INTO data_scr_country_statistic (CountryCode, CountryName, TweetCount,PosSentiment,NegSentiment) VALUES (%s,%s,%s,%s,%s)" \
+                " ON DUPLICATE KEY UPDATE TweetCount=VALUES(TweetCount),PosSentiment=VALUES(PosSentiment),NegSentiment=VALUES(NegSentiment)"
+        for row in result:
+            #print(str(row[0])+"-"+str(row[1])+"-"+str(row[2])+"-"+str(row[3])+"-"+str(row[4]))
+            args = (str(row[0]), str(row[1]), str(row[2]), str(row[3]), str(row[4]))
+            res = sql.writeStatement(query, args)
+            if (res != -1):
+                resCount = resCount + res
+        print(str(resCount) + " countries are added to country statistic table")
 
 
     #Do the face recognition

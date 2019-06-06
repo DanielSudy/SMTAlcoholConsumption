@@ -42,7 +42,7 @@ class TwitterSearcher():
 
         if not geolocation:
             print("Start sreaching without geo boundary")
-            for tweet in tweepy.Cursor(api.search, q=query,lang="en",include_entities=True, since_id=smax_id,tweet_mode='extended').items(count):
+            for tweet in tweepy.Cursor(api.search, q=query,lang="en",include_entities=True,until="2019-06-05",tweet_mode='extended').items(count):
                 #print(tweet.user.screen_name, "Tweeted:", tweet.text, "AT: ",tweet.created_at)
                 tweetToWrite = tweet._json
                 searchedTweets=searchedTweets+1
@@ -55,7 +55,7 @@ class TwitterSearcher():
 
         else:
             print("Start sreaching with geo boundary")
-            for tweet in tweepy.Cursor(api.search, q=query, geocode=geolocation, lang="en",include_entities=True,since_id=smax_id,tweet_mode='extended').items(count):
+            for tweet in tweepy.Cursor(api.search, q=query, geocode=geolocation, lang="en",include_entities=True,until="2019-06-05",tweet_mode='extended').items(count):
                 #print(tweet.user.screen_name, "Tweeted:", tweet.text, "AT: ",tweet.created_at)
                 tweetToWrite = tweet._json
                 searchedTweets = searchedTweets + 1
@@ -68,15 +68,15 @@ class TwitterSearcher():
         print("Now "+str(tweetCounter)+ " tweets are collected from ["+str(count)+"] -> Write to JSON file")
 
 
-        print("Sreaching tweets finished")
+        print("Sreaching tweets♠ finished")
 
 
 if __name__ == '__main__':
-    filename="search_results_2.txt"
+    filename="search_results_5.txt"
     query = "alcohol OR beer OR wine OR drunk OR (drinking AND alcohol) OR (party AND alcohol)"
     language="en"
     geolocation=""
-    maxid="1134840349090824193"
+    maxid="1136088262244753407"
     count=50000000
 
     searcher = TwitterSearcher()

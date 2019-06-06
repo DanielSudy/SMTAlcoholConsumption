@@ -11,40 +11,12 @@ from pygal_maps_world.maps import World
 from tweepy_streamer import TwitterAuthenticator
 
 TRACKING_KEYWORDS = ['h']
-OUTPUT_FILE = "livestreamer.txt"
-TWEETS_TO_CAPTURE = 50
+OUTPUT_FILE = ""
+TWEETS_TO_CAPTURE = 0
 
 pd.set_option('display.width', 400)
 pd.set_option('display.max_colwidth', -1)
 pd.set_option('display.max_columns', 10)
-
-class HandleDataFormat():
-    def init(self):
-        tweets_data = []
-        print("Start HandleDataFormat")
-        # Open connection to file
-        with open(OUTPUT_FILE, "r") as tweets_file:
-            # Read in tweets and store in list
-            for line in tweets_file:
-                tweet = json.loads(line)
-                tweets_data.append(tweet)
-
-        df = pd.DataFrame()
-        #df['text'] = list(map(lambda tweet: tweet['text'], tweets_data))
-
-        df['location'] = list(map(lambda tweet: tweet['user']['location'], tweets_data))
-
-        df['country_code'] = list(map(lambda tweet: tweet['place']['country_code']
-        if tweet['place'] != None else '', tweets_data))
-
-        df['long'] = list(map(lambda tweet: tweet['coordinates']['coordinates'][0]
-        if tweet['coordinates'] != None else 'NaN', tweets_data))
-
-        df['latt'] = list(map(lambda tweet: tweet['coordinates']['coordinates'][1]
-        if tweet['coordinates'] != None else 'NaN', tweets_data))
-
-        return df
-
 
 
 
@@ -56,23 +28,21 @@ class MyStreamListener(tweepy.StreamListener):
     def __init__(self, api=None):
         super(MyStreamListener, self).__init__()
         self.num_tweets = 0
-        self.file = open(OUTPUT_FILE, "w")
+        self.good_tweets = 0
+        self.file = open(OUTPUT_FILE, "a+")
 
     def on_status(self, status):
         tweet = status._json
-        self.file.write(json.dumps(tweet) + '\n')
+        self.num_tweets=self.num_tweets+1
 
-        if tweet['place'] != None and tweet['coordinates'] != None:
-            print("No new data")
-        else:
-            print("Add data")
-        #self.num_tweets += 1
+        if status.place != None and status.coordinates != None:
+            self.good_tweets=self.good_tweets+1
+            self.file.write(json.dumps(tweet) + '\n')
 
         # Stops streaming when it reaches the limit
         if self.num_tweets <= TWEETS_TO_CAPTURE:
-
-            if self.num_tweets % 10 == 0:  # just to see some progress...
-                print('Numer of tweets captured so far: {}'.format(self.num_tweets))
+            if self.num_tweets % 100 == 0:  # just to see some progress...
+                print(str(self.num_tweets) + " still investigated -> " + str(self.good_tweets) + " are applicable")
             return True
         else:
             return False
@@ -84,25 +54,21 @@ class MyStreamListener(tweepy.StreamListener):
 
 if __name__ == '__main__':
 
+    OUTPUT_FILE = "livetweets.txt"
+    TWEETS_TO_CAPTURE = 1000000
+
     print("Run Listener for crawling twitter data")
 
     #Define search content
-    region_location = [-27.4,35.8,47.0,72.7]
-    hash_tags = ["alcohol","beer","wine"," drinking alcohol","party"]
+    key_words =["alcohol,beer,wine,drunk,drinking alcohol,party alcohol"]
 
-    capturing = True
 
-    if capturing==True:
-        l = MyStreamListener()
-        # Create you Stream object with authentication
-        auth = TwitterAuthenticator().authenticate_twitter_app()
-        stream = tweepy.Stream(auth, l)
+    l = MyStreamListener()
 
-        # Filter Twitter Streams to capture data by the keywords:
-        stream.filter(locations=region_location, languages=['en'], track=hash_tags)
-    else:
-        jHandler = HandleDataFormat()
-        pdstruct = jHandler.init()
-        print(pdstruct.head(100))
+    # Create you Stream object with authentication
+    auth = TwitterAuthenticator().authenticate_twitter_app()
+    stream = tweepy.Stream(auth, l)
 
+    # Filter Twitter Streams to capture data by the keywords:
+    stream.filter(track=key_words,languages=['en'])
 

@@ -9,6 +9,10 @@ from textblob import TextBlob, Word, Blobber
 import gender_guesser.detector as gender
 import alcohol_search
 import face_recognition as recognition
+import working_suit as workingsuit
+import time
+import datetime
+from dateutil.parser import parse
 
 
 pd.set_option('display.width', 400)
@@ -91,6 +95,7 @@ class TextAnalysis():
         for i in range(0, count_row):
             tweet_text=self.cleanTweet(df['text'].values[i])
             user_name=self.cleanTweet(df['user'].values[i])
+            creation_date=parse(df['created'].values[i])
             analysis = TextBlob(tweet_text)
             # set sentiment
             if analysis.sentiment.polarity > 0:
@@ -101,6 +106,7 @@ class TextAnalysis():
                 sentiment.append(-1)
             df['text'].values[i] = tweet_text
             df['user'].values[i] = user_name
+            df['created'].values[i] = creation_date
         df['sentiment']=sentiment
 
 class NumericAnalysis():
@@ -120,16 +126,16 @@ class Storage():
             sql.deleteTableContent("data_scr_tweets")
 
 
-            query = "INSERT INTO data_scr_tweets(CreationDate,AccountCreated,TweetID,UserName,UserID,Gender,UserFollowerCount,UserFriendCount,UsedDevice,Tweet,ReplayID,CountryName,CountryCode,GeoLong,GeoLat,Sentiment) " \
-                    "VALUES(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)"
+            query = "INSERT INTO data_scr_tweets(CreationDate,AccountCreated,TweetID,UserName,UserID,PorfilPictureURL,Gender,UserFollowerCount,UserFriendCount,UsedDevice,Tweet,ReplayID,CountryName,CountryCode,GeoLong,GeoLat,Sentiment) " \
+                    "VALUES(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)"
             count_row = pdstruct.shape[0]
             for i in range(0, count_row):
                 #print(genderDedector.get_gender(str(pdstruct['user'].values[i]).split(" ")[0]))
-                #print(str(pdstruct['created'].values[i]))
+                print(str(pdstruct['user'].values[i]))
 
                 args = (
                 str(pdstruct['created'].values[i]),str(pdstruct['account_created'].values[i]), str(pdstruct['id'].values[i]), str(pdstruct['user'].values[i]),str(pdstruct['user_id'].values[i]),
-                genderDedector.get_gender(str(pdstruct['user'].values[i]).split(" ")[0]),
+                str(pdstruct['user_profil_pic_url'].values[i]),genderDedector.get_gender(str(pdstruct['user'].values[i]).split(" ")[0]),
                 str(pdstruct['user_follower_cnt'].values[i]), str(pdstruct['user_friend_cnt'].values[i]),
                 str(pdstruct['source'].values[i]), str(pdstruct['text'].values[i]), str(pdstruct['replay'].values[i]),
                 str(pdstruct['country'].values[i]), str(pdstruct['country_code'].values[i]),
@@ -175,6 +181,12 @@ class MySQLWriter():
         records = mycursor.fetchall()
         return records
 
+    def updateStatement(self,statement):
+        mycursor = self.mydb.cursor()
+        mycursor.execute(statement)
+        self.mydb.commit()
+        return mycursor.rowcount
+
 
 if __name__ == '__main__':
 
@@ -186,68 +198,111 @@ if __name__ == '__main__':
     storage = Storage()
     users = UserAnalysis()
     faces = recognition.MSAzureFaceRecogntion()
-    #sql = MySQLWriter()
-
+    suit = workingsuit.WorkingSuit()
+    sql = MySQLWriter()
     genderDedector = gender.Detector(case_sensitive=False)
 
 
+    #Control Variables
+
+    do_general_tweet_db_stoarage=False
+    do_face_reco = False
+    do_graphical_analysis = True
+    do_sentiment_analysis = False
+
+
     #WFile to handle
-    pdstruct = jHandler.setupDataStrcuture("search_results_1.txt")
+    pdstruct = jHandler.setupDataStrcuture("livetweets.txt")
     print("There are "+str(pdstruct.shape[0])+" rows in dataframe")
     #print(pdstruct.head(10))
 
 
     #Start Preporcessing some stuff
     #===================================================================================================================
-    textAnalyzer.start(pdstruct)
-
-    #result = sql.selectStatement("select distinct UserID from `data_scr_tweets`")
-    #for row in result:
-        #print(row[0])
-        #users.searchUserByID(row[0])
+    if(do_sentiment_analysis==True):
+        textAnalyzer.start(pdstruct)
 
 
-    count_row = pdstruct.shape[0]
-    for i in range(0, count_row):
-        print(str(pdstruct['user_profil_pic_url'].values[i]))
 
-    image_url = 'https://pbs.twimg.com/profile_images/360996042/IMG_7621_cropped_normal.jpg'
+    # Write the dataframe to MySQL database
+    # ===================================================================================================================
+    if(do_general_tweet_db_stoarage==True):
+        storage.storeToDatabase(sql,pdstruct)
+
+
+
+    #Do the face recognition
+    # ===================================================================================================================
+    if(do_face_reco==True):
+        result = sql.selectStatement("select TweetID,PorfilPictureURL,Gender from `data_scr_tweets`")
+        counter=0
+        normalizedUrl=""
+        rowaffected=0
+        for row in result:
+            if((counter % 19 == 0) and counter != 0):
+                print("***********************************************************************")
+                print("** HINT----->Wait 61 seconds from now: "+str(datetime.datetime.now()))
+                print("***********************************************************************")
+                time.sleep(61)
+
+            print("Entry Start: " + str(counter))
+            print("Date: " + str(datetime.datetime.now()))
+            print(str(row[0])+", URL:"+str(row[1])+", Gender="+str(row[2]))
+            normalizedUrl=str(suit.normalizeTwitterImageName(str(row[1])))
+            print("Normalized URL: "+normalizedUrl)
+
+            valid, faceframe = faces.getFaceInfos(normalizedUrl)
+            if (valid):
+                print("Status: " + str(valid) + ", id=" + faceframe['face_id'].values[0] + ", age=" + str(
+                    faceframe['age'].values[0]) + ", gender=" + str(faceframe['gender'].values[0]))
+                rowaffected = sql.updateStatement("UPDATE `data_scr_tweets` SET FaceRecoGender='"+str(faceframe['gender'].values[0])+"', FaceRecoAge='"+str(faceframe['age'].values[0])+"' where TweetID=" + str(row[0]))
+            else:
+                print("Status: " + str(valid))
+                rowaffected=0
+            print("Affected: "+str(rowaffected))
+            print("================================================================================================================================")
+            counter=counter+1
+
+    #users.searchUserByID(row[0])
+
+    #image_url = 'https://pbs.twimg.com/profile_images/1123335834009313283/urwaWKS6.jpg'
     #image_url = 'https://upload.wikimedia.org/wikipedia/commons/3/37/Dagestani_man_and_woman.jpg'
-    valid,faceframe=faces.getFaceInfos(image_url)
-    if(valid):
-        print("Status: "+str(valid)+", id="+faceframe['face_id'].values[0]+", age="+str(faceframe['age'].values[0])+", gender="+str(faceframe['gender'].values[0]))
+    #image_url = 'https://pbs.twimg.com/profile_images/1098476311830351872/pobLdxVF_normal.jpg'
+    """
+    print("A TEST")
+    valid, faceframe = faces.getFaceInfos(suit.normalizeTwitterImageName(image_url))
+    if (valid):
+        print("Status: " + str(valid) + ", id=" + faceframe['face_id'].values[0] + ", age=" + str(faceframe['age'].values[0]) + ", gender=" + str(faceframe['gender'].values[0]))
     else:
-        print("Status: " + str(valid))
-    #Write the dataframe to MySQL database
-
-    #storage.storeToDatabase(sql,pdstruct)
-
-
+        print("Status: " + str(valid))        
+    """
 
     #ANALYSIS SECTION
+    # ===================================================================================================================
     #Get data from mysql db and process it
     #Get sentiment order
     #select distinct CountryCode, CountryName, SUM(Sentiment)as Sentiment from `data_scr_tweets`  group by CountryCode order by Sentiment desc
 
-    """
-    result=sql.selectStatement("select distinct CountryCode, CountryName, SUM(Sentiment)as Sentiment from `data_scr_tweets` where Sentiment=1 group by CountryCode order by Sentiment desc")
-    sent_key=[]
-    sent_val=[]
-    for row in result:
-        sent_key.append(row[0])
-        sent_val.append(row[2])
+    if (do_graphical_analysis == True):
+        result=sql.selectStatement("select distinct CountryCode, CountryName, SUM(Sentiment)as Sentiment from `data_scr_tweets` where Sentiment=1 group by CountryCode order by Sentiment desc")
+        sent_key=[]
+        sent_val=[]
+        for row in result:
+            sent_key.append(row[0])
+            sent_val.append(row[2])
 
-    print(sent_key)
-    graphics.showBarchart(sent_key, sent_val, "Positive Tweets about alcohol per Country")
+        print(sent_key)
+        graphics.showBarchart(sent_key, sent_val, "Positive Tweets about alcohol per Country")
 
-    result = sql.selectStatement(
-        "select distinct CountryCode, CountryName, SUM(Sentiment)*-1 as Sentiment from `data_scr_tweets` where Sentiment=-1 group by CountryCode order by Sentiment desc")
-    sent_key = []
-    sent_val = []
-    for row in result:
-        sent_key.append(row[0])
-        sent_val.append(row[2])
+        result = sql.selectStatement(
+            "select distinct CountryCode, CountryName, SUM(Sentiment)*-1 as Sentiment from `data_scr_tweets` where Sentiment=-1 group by CountryCode order by Sentiment desc")
+        sent_key = []
+        sent_val = []
+        for row in result:
+            sent_key.append(row[0])
+            sent_val.append(row[2])
 
-    print(sent_key)
-    graphics.showBarchart(sent_key, sent_val, "Negative Tweets about alcohol per Country")
-    """
+        print(sent_key)
+        graphics.showBarchart(sent_key, sent_val, "Negative Tweets about alcohol per Country")
+
+    print("Data management done...")

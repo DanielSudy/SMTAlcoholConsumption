@@ -35,7 +35,8 @@ class MyStreamListener(tweepy.StreamListener):
             print("Text: " + text)
             print("Country code: " + status.place.country_code)
             self.good_tweets=self.good_tweets+1
-            self.db.insert(int(status.user.id_str), text, status.place.country_code)
+            self.db.insert_tweet(int(status.user.id_str), text, status.place.country_code)
+            self.db.save_changes()
 
         # Stops streaming when it reaches the limit
         if self.num_tweets <= self.max_tweets:
@@ -61,7 +62,7 @@ if __name__ == '__main__':
     key_words =["alcohol,beer,wine,drunk,drinking alcohol,party alcohol"]
 
 
-    l = MyStreamListener(max_tweets=10000)
+    l = MyStreamListener(max_tweets=100000)
 
     # Create you Stream object with authentication
     auth = authenticate_twitter_app()

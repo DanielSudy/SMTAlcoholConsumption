@@ -10,7 +10,7 @@ class MyStreamListener(tweepy.StreamListener):
     Twitter listener, collects streaming tweets and output to a file
     """
 
-    def __init__(self, output_file="alc_tweets.sql", max_tweets=1000):
+    def __init__(self, output_file="alc_tweets.db", max_tweets=1000):
         super(MyStreamListener, self).__init__()
         self.max_tweets = max_tweets
         self.num_tweets = 0

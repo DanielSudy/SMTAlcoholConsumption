@@ -55,25 +55,6 @@ class UserDB():
         else:
             self.conn = sqlite3.connect(db_file)
             self.c = self.conn.cursor()
-            self.c.execute('''CREATE TABLE user_sentiment
-                (user_id Int NOT NULL,
-                timeline_cnt Int NOT NULL,
-                alcohol_cnt Int NOT NULL,
-                negative_tb_cnt Int NOT NULL,
-                negative_af_cnt Int NOT NULL,
-                positive_tb_cnt Int NOT NULL,
-                positive_af_cnt Int NOT NULL,
-                neutral_tb_cnt Int NOT NULL,
-                neutral_af_cnt Int NOT NULL,
-                powerful_tb_cnt Int NOT NULL,
-                powerful_af_cnt Int NOT NULL,
-                powerful_negative_tb_cnt Real NOT NULL,
-                powerful_negative_af_cnt Int NOT NULL,
-                powerful_positive_tb_cnt Real NOT NULL,
-                powerful_positive_af_cnt Int NOT NULL,
-                sentiment_tb_sum Real NOT NULL,
-                sentiment_af_sum Int NOT NULL)''')
-            self.conn.commit()
 
         # self.c.execute("PRAGMA foreign_keys = ON")
         self.conn.isolation_level = None # for undoing changes
@@ -166,7 +147,7 @@ class UserDB():
     # create a dict for easier access!
     def get_sentiment_data(self):
         col_names = self.c.execute("PRAGMA table_info(user_sentiment)")
-        data = self.c.execute("SELECT * FROM user_sentiment WHERE alcohol_sum <= 100 AND timeline_size > 3000 AND timeline_size < 3500") # filter out spam
+        data = self.c.execute("SELECT * FROM user_sentiment WHERE alcohol_cnt <= 100 AND timeline_cnt > 3000 AND timeline_cnt < 3500") # filter out spam
         return query_to_dict(data)
     
     def __del__(self):

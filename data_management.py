@@ -16,6 +16,7 @@ from dateutil.parser import parse
 from mysql.connector import errorcode
 
 
+
 pd.set_option('display.width', 400)
 pd.set_option('display.max_colwidth', -1)
 pd.set_option('display.max_columns', 10)
@@ -50,7 +51,7 @@ class HandleDataFormat():
         df['user_loc'] = list(map(lambda tweet: tweet['user']['location']
         if tweet['user'] != None else '', tweets_data))
         df['source'] = list(map(lambda tweet: tweet['source'], tweets_data))
-        df['text'] = list(map(lambda tweet: tweet['text'], tweets_data))
+        df['text'] = list(map(lambda tweet: tweet['full_text'], tweets_data))
         df['replay'] = list(map(lambda tweet: tweet['in_reply_to_status_id'], tweets_data))
         df['country'] = list(map(lambda tweet: tweet['place']['country']
         if tweet['place'] != None else '', tweets_data))
@@ -60,6 +61,13 @@ class HandleDataFormat():
 
 
         return df
+
+    def writeToCountryFile(self,filename,result):
+        f = open(filename, 'w')
+        f.write("Country\tCount\n")
+        for row in result:
+            #print(str(row[0])+","+str(row[1]))
+            f.write(str(row[0])+"\t"+str(row[1])+"\n")
 
 class UserAnalysis():
     def searchUserByID(self,ID):
@@ -118,11 +126,14 @@ class NumericAnalysis():
 class Storage():
         def storeToDatabase(self,sql,pdstruct):
 
+            resultSql=0
+            importCounter=0
+            completeCounter=0
             print("Start SQL processing...")
             print("=======================")
 
             # delte Databse
-            sql.deleteTableContent("data_scr_tweets")
+            #sql.deleteTableContent("data_scr_tweets")
 
 
             query = "INSERT INTO data_scr_tweets(CreationDate,AccountCreated,TweetID,UserName,UserID,PorfilPictureURL," \
@@ -142,7 +153,13 @@ class Storage():
                 str(pdstruct['country'].values[i]), str(pdstruct['country_code'].values[i]),str(pdstruct['user_loc'].values[i]),
                 str(pdstruct['coordinates'].values[i]['coordinates'][0]),
                 str(pdstruct['coordinates'].values[i]['coordinates'][1]), str(pdstruct['sentiment'].values[i]))
-                sql.writeStatement(query, args)
+                resultSql=sql.writeStatement(query, args)
+                completeCounter=completeCounter+1
+                if(resultSql!=-1):
+                    importCounter=importCounter+1
+
+            print("Added "+str(importCounter)+" items to database from "+str(completeCounter)+" elements in text file")
+
 
 
 class MySQLWriter():
@@ -171,7 +188,6 @@ class MySQLWriter():
             self.mydb.commit()
             return mycursor.rowcount
         except:
-            #print(errorcode.ER_BAD_TABLE_ERROR)
             return -1
 
     def deleteTableContent(self,table):
@@ -227,15 +243,16 @@ if __name__ == '__main__':
     #Control Variables
 
     do_general_tweet_db_stoarage=False
-    do_face_reco = False
+    do_face_reco = True
     do_graphical_analysis = False
     do_user_db_exctraction = False
     do_country_db_extraction = False
-    do_tweets_per_country_db_extraction = True
+    do_tweets_per_country_db_extraction = False
+    do_genearte_import_file=False
 
 
     #WFile to handle
-    pdstruct = jHandler.setupDataStrcuture("livetweets.txt")
+    pdstruct = jHandler.setupDataStrcuture("search_results_5.txt")
     print("There are "+str(pdstruct.shape[0])+" rows in dataframe")
     #print(pdstruct.head(10))
 
@@ -265,7 +282,7 @@ if __name__ == '__main__':
                  "`AccountCreated` datetime NOT NULL,PRIMARY KEY (`UserID`)) ENGINE=InnoDB DEFAULT CHARSET=latin1"
         sql.createTableStatement(sqlUserTable)
 
-        select="SELECT DISTINCT UserID, UserName, Gender, COUNT(UserName) as Teets, SUM(Sentiment) as Rating, PorfilPictureURL, AccountCreated  FROM `data_scr_tweets` GROUP BY UserID"
+        select="SELECT DISTINCT UserID, UserName, Gender, COUNT(UserName) as Tweets, SUM(Sentiment) as Rating, PorfilPictureURL, AccountCreated  FROM `data_scr_tweets` GROUP BY UserID"
         result = sql.selectStatement(select)
         resCount=0
         query = "INSERT INTO data_scr_userinfo(UserID,UserName,NGender,Tweets,Rating,ProfilPictureURL,AccountCreated) " \
@@ -308,10 +325,10 @@ if __name__ == '__main__':
 
         select = "SELECT DISTINCT CountryCode, CountryName,COUNT(CountryCode) as TweetCount," \
                  " SUM(CASE WHEN Sentiment<0 THEN Sentiment ELSE 0 END) as NegSentiment," \
-                 "SUM(CASE WHEN Sentiment>=0 THEN Sentiment ELSE 0 END) as PosSentiment FROM `data_scr_tweets`GROUP BY CountryCode"
+                 "SUM(CASE WHEN Sentiment>0 THEN Sentiment ELSE 0 END) as PosSentiment FROM `data_scr_tweets`GROUP BY CountryCode"
         result = sql.selectStatement(select)
         resCount = 0
-        query = "INSERT INTO data_scr_country_statistic (CountryCode, CountryName, TweetCount,PosSentiment,NegSentiment) VALUES (%s,%s,%s,%s,%s)" \
+        query = "INSERT INTO data_scr_country_statistic (CountryCode, CountryName, TweetCount,NegSentiment,PosSentiment) VALUES (%s,%s,%s,%s,%s)" \
                 " ON DUPLICATE KEY UPDATE TweetCount=VALUES(TweetCount),PosSentiment=VALUES(PosSentiment),NegSentiment=VALUES(NegSentiment)"
         for row in result:
             #print(str(row[0])+"-"+str(row[1])+"-"+str(row[2])+"-"+str(row[3])+"-"+str(row[4]))
@@ -325,10 +342,13 @@ if __name__ == '__main__':
     #Do the face recognition
     # ===================================================================================================================
     if(do_face_reco==True):
-        result = sql.selectStatement("select TweetID,PorfilPictureURL,Gender from `data_scr_tweets`")
+        result = sql.selectStatement("Select UserID,ProfilPictureURL,NGender from `data_scr_userinfo` where FAge=0")
+        NotIdentified=0
         counter=0
         normalizedUrl=""
         rowaffected=0
+        MeanGender=""
+        print("Users to search: "+str(len(result)))
         for row in result:
             if((counter % 19 == 0) and counter != 0):
                 print("***********************************************************************")
@@ -346,11 +366,17 @@ if __name__ == '__main__':
             if (valid):
                 print("Status: " + str(valid) + ", id=" + faceframe['face_id'].values[0] + ", age=" + str(
                     faceframe['age'].values[0]) + ", gender=" + str(faceframe['gender'].values[0]))
-                rowaffected = sql.updateStatement("UPDATE `data_scr_tweets` SET FaceRecoGender='"+str(faceframe['gender'].values[0])+"', FaceRecoAge='"+str(faceframe['age'].values[0])+"' where TweetID=" + str(row[0]))
+
+                MeanGender=suit.getMeanGender(str(row[2]),str(faceframe['gender'].values[0]))
+                print("MeanGender="+MeanGender)
+                rowaffected = sql.updateStatement("UPDATE `data_scr_userinfo` SET FGender='"+str(faceframe['gender'].values[0])+"', FAge='"+str(faceframe['age'].values[0])+"', MeanGender='"+MeanGender+"' where UserID=" + str(row[0]))
             else:
                 print("Status: " + str(valid))
+                NotIdentified=sql.updateStatement("UPDATE `data_scr_userinfo` SET FAge=-1, MeanGender='"+str( suit.getNormalizedGenderFromName(str(row[2])))+"' where UserID=" + str(row[0]))
+                print("Result of NID Update: "+str(NotIdentified))
                 rowaffected=0
             print("Affected: "+str(rowaffected))
+            print(str(counter)+" users are prcoessed out of: "+str(len(result)))
             print("================================================================================================================================")
             counter=counter+1
 
@@ -368,6 +394,12 @@ if __name__ == '__main__':
         print("Status: " + str(valid))        
     """
 
+
+    if(do_genearte_import_file==True):
+        result = sql.selectStatement("SELECT CountryName,TweetCount,PosSentiment,NegSentiment FROM `data_scr_country_statistic` where CountryName!=''")
+        if(result!=-1):
+            jHandler.writeToCountryFile("countryMap.txt",result)
+
     #ANALYSIS SECTION
     # ===================================================================================================================
     #Get data from mysql db and process it
@@ -375,18 +407,9 @@ if __name__ == '__main__':
     #select distinct CountryCode, CountryName, SUM(Sentiment)as Sentiment from `data_scr_tweets`  group by CountryCode order by Sentiment desc
 
     if (do_graphical_analysis == True):
-        result=sql.selectStatement("select distinct CountryCode, CountryName, SUM(Sentiment)as Sentiment from `data_scr_tweets` where Sentiment=1 group by CountryCode order by Sentiment desc")
-        sent_key=[]
-        sent_val=[]
-        for row in result:
-            sent_key.append(row[0])
-            sent_val.append(row[2])
-
-        print(sent_key)
-        graphics.showBarchart(sent_key, sent_val, "Positive Tweets about alcohol per Country")
 
         result = sql.selectStatement(
-            "select distinct CountryCode, CountryName, SUM(Sentiment)*-1 as Sentiment from `data_scr_tweets` where Sentiment=-1 group by CountryCode order by Sentiment desc")
+            "select CountryCode, CountryName, PosSentiment from `data_scr_country_statistic` order by PosSentiment desc")
         sent_key = []
         sent_val = []
         for row in result:
@@ -394,6 +417,6 @@ if __name__ == '__main__':
             sent_val.append(row[2])
 
         print(sent_key)
-        graphics.showBarchart(sent_key, sent_val, "Negative Tweets about alcohol per Country")
+        graphics.showBarchart(sent_key, sent_val, "Positive Tweets about alcohol per Country")
 
     print("Data management done...")

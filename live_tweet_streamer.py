@@ -54,7 +54,7 @@ class MyStreamListener(tweepy.StreamListener):
 
 if __name__ == '__main__':
 
-    OUTPUT_FILE = "livetweets.txt"
+    OUTPUT_FILE = "livetweets_abImport.txt"
     TWEETS_TO_CAPTURE = 1000000
 
     print("Run Listener for crawling twitter data")

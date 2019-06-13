@@ -42,7 +42,7 @@ class TwitterSearcher():
 
         if not geolocation:
             print("Start sreaching without geo boundary")
-            for tweet in tweepy.Cursor(api.search, q=query,lang="en",include_entities=True,until="2019-06-05",tweet_mode='extended').items(count):
+            for tweet in tweepy.Cursor(api.search, q=query,lang="en",include_entities=True,until="2019-05-31",tweet_mode='extended').items(count):
                 #print(tweet.user.screen_name, "Tweeted:", tweet.text, "AT: ",tweet.created_at)
                 tweetToWrite = tweet._json
                 searchedTweets=searchedTweets+1

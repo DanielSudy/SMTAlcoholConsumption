@@ -35,21 +35,45 @@ class UserDB():
                  content Varchar(240) NOT NULL)''')
             self.c.execute('''CREATE TABLE user_sentiment
                 (user_id Int NOT NULL,
-                timeline_size Int NOT NULL,
-                alcohol_sum Int NOT NULL,
-                powerful_tb_sum Int NOT NULL,
-                powerful_af_sum Int NOT NULL,
+                timeline_cnt Int NOT NULL,
+                alcohol_cnt Int NOT NULL,
+                negative_tb_cnt Int NOT NULL,
+                negative_af_cnt Int NOT NULL,
+                positive_tb_cnt Int NOT NULL,
+                positive_af_cnt Int NOT NULL,
+                neutral_tb_cnt Int NOT NULL,
+                neutral_af_cnt Int NOT NULL,
+                powerful_tb_cnt Int NOT NULL,
+                powerful_af_cnt Int NOT NULL,
+                powerful_negative_tb_cnt Real NOT NULL,
+                powerful_negative_af_cnt Int NOT NULL,
+                powerful_positive_tb_cnt Real NOT NULL,
+                powerful_positive_af_cnt Int NOT NULL,
                 sentiment_tb_sum Real NOT NULL,
-                sentiment_af_sum Int NOT NULL,
-                alcohol_percent Real NOT NULL,
-                powerful_tb_percent Real NOT NULL,
-                powerful_af_percent Real NOT NULL,
-                sentiment_tb_percent Real NOT NULL,
-                sentiment_af_percent Real NOT NULL)''')
+                sentiment_af_sum Int NOT NULL)''')
             self.conn.commit()
         else:
             self.conn = sqlite3.connect(db_file)
             self.c = self.conn.cursor()
+            self.c.execute('''CREATE TABLE user_sentiment
+                (user_id Int NOT NULL,
+                timeline_cnt Int NOT NULL,
+                alcohol_cnt Int NOT NULL,
+                negative_tb_cnt Int NOT NULL,
+                negative_af_cnt Int NOT NULL,
+                positive_tb_cnt Int NOT NULL,
+                positive_af_cnt Int NOT NULL,
+                neutral_tb_cnt Int NOT NULL,
+                neutral_af_cnt Int NOT NULL,
+                powerful_tb_cnt Int NOT NULL,
+                powerful_af_cnt Int NOT NULL,
+                powerful_negative_tb_cnt Real NOT NULL,
+                powerful_negative_af_cnt Int NOT NULL,
+                powerful_positive_tb_cnt Real NOT NULL,
+                powerful_positive_af_cnt Int NOT NULL,
+                sentiment_tb_sum Real NOT NULL,
+                sentiment_af_sum Int NOT NULL)''')
+            self.conn.commit()
 
         # self.c.execute("PRAGMA foreign_keys = ON")
         self.conn.isolation_level = None # for undoing changes
@@ -60,16 +84,61 @@ class UserDB():
     def insert_user_tweet(self, user_id, content):
         self.c.execute("INSERT INTO user_tweets(user_id, content) VALUES(?,?)", (user_id, content))
         
-    def insert_user_sentiment(self, user_id, timeline_size, alcohol_sum,
-        powerful_tb_sum, powerful_af_sum, sentiment_tb_sum, sentiment_af_sum, alcohol_percent,
-        powerful_tb_percent, powerful_af_percent, sentiment_tb_percent, sentiment_af_percent):
-        self.c.execute('''INSERT INTO user_sentiment(user_id, timeline_size, alcohol_sum,
-            powerful_tb_sum, powerful_af_sum, sentiment_tb_sum, sentiment_af_sum, alcohol_percent,
-            powerful_tb_percent, powerful_af_percent, sentiment_tb_percent, sentiment_af_percent)
-            VALUES(?,?,?,?,?,?,?,?,?,?,?,?)''',
-            (user_id, timeline_size, alcohol_sum,
-            powerful_tb_sum, powerful_af_sum, sentiment_tb_sum, sentiment_af_sum, alcohol_percent,
-            powerful_tb_percent, powerful_af_percent, sentiment_tb_percent, sentiment_af_percent))
+    def insert_user_sentiment(self, 
+        user_id,
+        timeline_cnt,
+        alcohol_cnt,
+        negative_tb_cnt,
+        negative_af_cnt,
+        positive_tb_cnt,
+        positive_af_cnt,
+        neutral_tb_cnt,
+        neutral_af_cnt,
+        powerful_tb_cnt, 
+        powerful_af_cnt,
+        powerful_negative_tb_cnt,
+        powerful_negative_af_cnt,
+        powerful_positive_tb_cnt,
+        powerful_positive_af_cnt,
+        sentiment_tb_sum,
+        sentiment_af_sum):
+        
+        self.c.execute('''INSERT INTO user_sentiment(
+            user_id,
+            timeline_cnt,
+            alcohol_cnt,
+            negative_tb_cnt,
+            negative_af_cnt,
+            positive_tb_cnt,
+            positive_af_cnt,
+            neutral_tb_cnt,
+            neutral_af_cnt,
+            powerful_tb_cnt, 
+            powerful_af_cnt,
+            powerful_negative_tb_cnt,
+            powerful_negative_af_cnt,
+            powerful_positive_tb_cnt,
+            powerful_positive_af_cnt,
+            sentiment_tb_sum,
+            sentiment_af_sum)
+            VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)''',
+            (user_id,
+            timeline_cnt,
+            alcohol_cnt,
+            negative_tb_cnt,
+            negative_af_cnt,
+            positive_tb_cnt,
+            positive_af_cnt,
+            neutral_tb_cnt,
+            neutral_af_cnt,
+            powerful_tb_cnt, 
+            powerful_af_cnt,
+            powerful_negative_tb_cnt,
+            powerful_negative_af_cnt,
+            powerful_positive_tb_cnt,
+            powerful_positive_af_cnt,
+            sentiment_tb_sum,
+            sentiment_af_sum))
         
     def save_changes(self):
         self.conn.commit()
@@ -97,7 +166,7 @@ class UserDB():
     # create a dict for easier access!
     def get_sentiment_data(self):
         col_names = self.c.execute("PRAGMA table_info(user_sentiment)")
-        data = self.c.execute("SELECT * FROM user_sentiment WHERE alcohol_sum < 150") # filter out spam
+        data = self.c.execute("SELECT * FROM user_sentiment WHERE alcohol_sum <= 100 AND timeline_size > 3000 AND timeline_size < 3500") # filter out spam
         return query_to_dict(data)
     
     def __del__(self):

@@ -14,6 +14,8 @@ import time
 import datetime
 from dateutil.parser import parse
 from mysql.connector import errorcode
+import matplotlib.pyplot as plt
+
 
 
 
@@ -69,21 +71,7 @@ class HandleDataFormat():
             #print(str(row[0])+","+str(row[1]))
             f.write(str(row[0])+"\t"+str(row[1])+"\n")
 
-class UserAnalysis():
-    def searchUserByID(self,ID):
-        counter=0
-        tweet=""
-        auth = alcohol_search.TwitterAuthenticator()
-        api = tweepy.API(auth.authenticate_twitter_app())
-        user = api.get_user(ID)
-        print(user.name)
-        for status in tweepy.Cursor(api.user_timeline, screen_name=user.screen_name, tweet_mode="extended",q="#gameofthrones").items(1000):
-            counter=counter+1
-            tweet = status.full_text.lower()
-            if (counter % 100 == 0):
-                print(str(counter)+" out of "+str(1000))
-            if((tweet.find("birthday")==1) or (tweet.find("happy")==1) or (tweet.find("congratulation")==1)):
-                print(status.full_text.lower())
+
 
 
 
@@ -118,7 +106,6 @@ class TextAnalysis():
 
 class NumericAnalysis():
         def getCountryStatistic(self,df):
-            #print(df.country.value_counts())
             key = df.country_code.value_counts().keys().tolist()
             counts = df.country_code.value_counts().tolist()
             return key, counts
@@ -199,6 +186,15 @@ class MySQLWriter():
         except:
             return -1
 
+    def openStatement(self, query):
+        try:
+            mycursor = self.mydb.cursor()
+            mycursor.execute(query)
+            self.mydb.commit()
+            return mycursor.rowcount
+        except:
+            return -1
+
     def selectStatement(self,query):
         try:
             mycursor = self.mydb.cursor()
@@ -233,7 +229,6 @@ if __name__ == '__main__':
     numericAnalyzer = NumericAnalysis()
     graphics = analyzing.GraphicAnalyzer()
     storage = Storage()
-    users = UserAnalysis()
     faces = recognition.MSAzureFaceRecogntion()
     suit = workingsuit.WorkingSuit()
     sql = MySQLWriter()
@@ -242,24 +237,20 @@ if __name__ == '__main__':
 
     #Control Variables
 
-    do_general_tweet_db_stoarage=False
-    do_face_reco = True
-    do_graphical_analysis = False
+    do_general_tweet_db_stoarage=False #Just for initial
+    do_face_reco = False
+    do_graphical_analysis = True
     do_user_db_exctraction = False
     do_country_db_extraction = False
     do_tweets_per_country_db_extraction = False
-    do_genearte_import_file=False
+    do_genearte_import_file=True
+    do_generate_continent_statistic=False
+    do_generate_age_classes = True
 
 
     #WFile to handle
-    pdstruct = jHandler.setupDataStrcuture("search_results_5.txt")
+    pdstruct = jHandler.setupDataStrcuture("livetweets_abImport.txt")
     print("There are "+str(pdstruct.shape[0])+" rows in dataframe")
-    #print(pdstruct.head(10))
-
-
-    #Start Preporcessing some stuff
-    #===================================================================================================================
-
 
 
 
@@ -269,7 +260,11 @@ if __name__ == '__main__':
         textAnalyzer.start(pdstruct)
         storage.storeToDatabase(sql,pdstruct)
 
+
+    #Create user statistics table
+    # ===================================================================================================================
     if(do_user_db_exctraction==True):
+        print("========DO User Extraction")
         sqlUserTable="CREATE TABLE IF NOT EXISTS `data_scr_userinfo` (`UserID` int(100) NOT NULL," \
                  "`UserName` varchar(255) NOT NULL," \
                  "`NGender` varchar(50) NOT NULL," \
@@ -294,7 +289,10 @@ if __name__ == '__main__':
                 resCount=resCount+res
         print(str(resCount)+" users are added to user table")
 
+    # Create user countries
+    # ===================================================================================================================
     if(do_country_db_extraction == True):
+        print("========DO User Country Extraction")
         sqlUserCountries ="CREATE TABLE IF NOT EXISTS `data_scr_usercountries` (`UserID` int(100) NOT NULL," \
                               "`CountryName` varchar(255) NOT NULL," \
                               "`CountryCode` varchar(20) NOT NULL," \
@@ -315,8 +313,12 @@ if __name__ == '__main__':
                 resCount = resCount + res
         print(str(resCount) + " users are added to country table")
 
+
+    # Create country statistics table
+    # ===================================================================================================================
     if (do_tweets_per_country_db_extraction == True):
-        sqlCountryStatistic ="CREATE TABLE `data_scr_country_statistic` (`CountryCode` varchar(20) NOT NULL," \
+        print("========DO Country Statistics")
+        sqlCountryStatistic ="CREATE TABLE IF NOT EXISTS `data_scr_country_statistic` (`CountryCode` varchar(20) NOT NULL," \
                              "`CountryName` varchar(255) NOT NULL," \
                              "`PosSentiment` int(11) NOT NULL," \
                              "`NegSentiment` int(11) NOT NULL," \
@@ -338,16 +340,61 @@ if __name__ == '__main__':
                 resCount = resCount + res
         print(str(resCount) + " countries are added to country statistic table")
 
+    # Create continent statistics table
+    # ===================================================================================================================
+    if (do_generate_continent_statistic == True):
+        print("========DO Continent Statistics")
+        sqlCountryStatistic = "CREATE TABLE IF NOT EXISTS `data_scr_continent_statistic` (`Continent` varchar(100) NOT NULL," \
+                              "`PosSentiment` int(11) NOT NULL," \
+                              "`NegSentiment` int(11) NOT NULL," \
+                              "`TweetCount` int(11) NOT NULL,PRIMARY KEY (`Continent`)) ENGINE=InnoDB DEFAULT CHARSET=latin1"
+        sql.createTableStatement(sqlCountryStatistic)
+
+        sql.deleteTableContent("data_scr_continent_statistic")
+
+        select = "SELECT CountryCode, PosSentiment, NegSentiment, TweetCount from data_scr_country_statistic order by CountryCode asc"
+        result = sql.selectStatement(select)
+        contients = {}
+        resCount = 0
+        valid=False
+        for row in result:
+            if (row[0] != ""):
+                valid,continent = suit.getContinetalInfo(str(row[0]))
+                if (valid):
+                    if continent in contients:
+                        contients[continent][0] += row[1]  # Pos
+                        contients[continent][1] += row[2]  # Neg
+                        contients[continent][2] += row[3]  # Count
+                    else:
+                        statistic = [0, 0, 0]
+                        statistic[0] = row[1]
+                        statistic[1] = row[2]
+                        statistic[2] = row[3]
+                        contients[continent] = statistic
+                else:
+                    print("CountryCode "+row[0]+" is unknown")
+
+        print(contients)
+
+        query = "INSERT INTO data_scr_continent_statistic (Continent, PosSentiment, NegSentiment, TweetCount) VALUES (%s,%s,%s,%s)" \
+                " ON DUPLICATE KEY UPDATE PosSentiment=VALUES(PosSentiment),NegSentiment=VALUES(NegSentiment),TweetCount=VALUES(TweetCount)"
+
+        for key in contients:
+            # print(key+" corresponds to ", contients[key][0])
+            args = (key, str(contients[key][0]), str(contients[key][1]), str(contients[key][2]))
+            res = sql.writeStatement(query, args)
 
     #Do the face recognition
     # ===================================================================================================================
     if(do_face_reco==True):
+        print("========DO Face Recognition")
         result = sql.selectStatement("Select UserID,ProfilPictureURL,NGender from `data_scr_userinfo` where FAge=0")
         NotIdentified=0
         counter=0
         normalizedUrl=""
         rowaffected=0
         MeanGender=""
+        age=1
         print("Users to search: "+str(len(result)))
         for row in result:
             if((counter % 19 == 0) and counter != 0):
@@ -369,7 +416,12 @@ if __name__ == '__main__':
 
                 MeanGender=suit.getMeanGender(str(row[2]),str(faceframe['gender'].values[0]))
                 print("MeanGender="+MeanGender)
-                rowaffected = sql.updateStatement("UPDATE `data_scr_userinfo` SET FGender='"+str(faceframe['gender'].values[0])+"', FAge='"+str(faceframe['age'].values[0])+"', MeanGender='"+MeanGender+"' where UserID=" + str(row[0]))
+                if(faceframe['age'].values[0]==0.0):
+                    age=1
+                else:
+                    age=faceframe['age'].values[0]
+                rowaffected = sql.updateStatement("UPDATE `data_scr_userinfo` SET FGender='"+str(faceframe['gender'].values[0])+"', FAge='"+str(age)+"', MeanGender='"+MeanGender+"' where UserID=" + str(row[0]))
+
             else:
                 print("Status: " + str(valid))
                 NotIdentified=sql.updateStatement("UPDATE `data_scr_userinfo` SET FAge=-1, MeanGender='"+str( suit.getNormalizedGenderFromName(str(row[2])))+"' where UserID=" + str(row[0]))
@@ -380,43 +432,107 @@ if __name__ == '__main__':
             print("================================================================================================================================")
             counter=counter+1
 
-    #users.searchUserByID(row[0])
+    # Create age classes out of user statistics
+    # ===================================================================================================================
+    if(do_generate_age_classes==True):
+        print("========DO Create Age Classes")
+        sqlAgeClassStatistic = "CREATE TABLE IF NOT EXISTS `data_scr_age_classes` (`ClassName` varchar(100) NOT NULL," \
+                              "`MaleCnt` int(11) NOT NULL," \
+                              "`FemaleCnt` int(11) NOT NULL," \
+                              "`OverallCnt` int(11) NOT NULL,PRIMARY KEY (`ClassName`)) ENGINE=InnoDB DEFAULT CHARSET=latin1"
+        sql.createTableStatement(sqlAgeClassStatistic)
 
-    #image_url = 'https://pbs.twimg.com/profile_images/1123335834009313283/urwaWKS6.jpg'
-    #image_url = 'https://upload.wikimedia.org/wikipedia/commons/3/37/Dagestani_man_and_woman.jpg'
-    #image_url = 'https://pbs.twimg.com/profile_images/1098476311830351872/pobLdxVF_normal.jpg'
-    """
-    print("A TEST")
-    valid, faceframe = faces.getFaceInfos(suit.normalizeTwitterImageName(image_url))
-    if (valid):
-        print("Status: " + str(valid) + ", id=" + faceframe['face_id'].values[0] + ", age=" + str(faceframe['age'].values[0]) + ", gender=" + str(faceframe['gender'].values[0]))
-    else:
-        print("Status: " + str(valid))        
-    """
+        sql.deleteTableContent("data_scr_age_classes")
+        select = "SELECT MeanGender, FAge, Tweets, UserID from data_scr_userinfo where FAge!='-1' and FAge!='0' order by UserID"
+        result = sql.selectStatement(select)
+
+        query = ""
+        args = ""
+        ageclasses = {}
+        for row in result:
+            ageclass = suit.getAgeClass(row[1])
+            if ageclass in ageclasses:
+                if(str(row[0])=="male"):
+                    ageclasses[ageclass][0] += 1        # Male
+                    ageclasses[ageclass][2] += 1        # Count
+                else:
+                    ageclasses[ageclass][1] += 1        # Female
+                    ageclasses[ageclass][2] += 1        # Xount
+            else:
+                statistic = [0, 0, 0]
+                if(str(row[0]) == "male"):
+                    statistic[0] = 1                    #Male
+                    statistic[2] = 1                    #Count
+                else:
+                    statistic[1] = 1                    # Female
+                    statistic[2] = 1                    # Count
+                ageclasses[ageclass] = statistic
+
+        print(ageclasses)
+        query = "INSERT INTO data_scr_age_classes (ClassName, MaleCnt, FemaleCnt, OverallCnt) VALUES (%s,%s,%s,%s)" \
+                " ON DUPLICATE KEY UPDATE MaleCnt=VALUES(MaleCnt),FemaleCnt=VALUES(FemaleCnt),OverallCnt=VALUES(OverallCnt)"
+
+        for key in ageclasses:
+            # print(key+" corresponds to ", contients[key][0])
+            args = (key, str(ageclasses[key][0]), str(ageclasses[key][1]), str(ageclasses[key][2]))
+            res = sql.writeStatement(query, args)
 
 
+
+
+
+
+    # Create import fiel for heatmapper
+    # ===================================================================================================================
     if(do_genearte_import_file==True):
+        print("========DO Heatmap File Creation")
         result = sql.selectStatement("SELECT CountryName,TweetCount,PosSentiment,NegSentiment FROM `data_scr_country_statistic` where CountryName!=''")
         if(result!=-1):
             jHandler.writeToCountryFile("countryMap.txt",result)
 
-    #ANALYSIS SECTION
-    # ===================================================================================================================
-    #Get data from mysql db and process it
-    #Get sentiment order
-    #select distinct CountryCode, CountryName, SUM(Sentiment)as Sentiment from `data_scr_tweets`  group by CountryCode order by Sentiment desc
+
+    #ANALYSIS AND GRAPHIC SECTION
+    #===================================================================================================================
 
     if (do_graphical_analysis == True):
+        print("========DO Grahpic Analysis")
 
-        result = sql.selectStatement(
-            "select CountryCode, CountryName, PosSentiment from `data_scr_country_statistic` order by PosSentiment desc")
-        sent_key = []
-        sent_val = []
-        for row in result:
-            sent_key.append(row[0])
-            sent_val.append(row[2])
+        result=sql.selectStatement("SELECT MeanGender,count(MeanGender) AS GenderCount FROM data_scr_userinfo GROUP BY MeanGender")
+        df = pd.DataFrame(result)
 
-        print(sent_key)
-        graphics.showBarchart(sent_key, sent_val, "Positive Tweets about alcohol per Country")
+        graphics.showPieChart(df[1],df[0],"Gender Distribution of Users","GenderStatistic.png")
+        graphics.showBarchart(df[0], df[1], "User", "Users per Gender Group", "UsersPerGenderGroup.png")
 
+        result = sql.selectStatement("SELECT COUNT(u1.Rating) AS count, 'Negative' as type FROM data_scr_userinfo u1 WHERE u1.Rating<0 and u1.MeanGender='female' "
+                                     "UNION ALL SELECT COUNT(u2.Rating) AS count, 'Positive'FROM data_scr_userinfo u2 WHERE u2.Rating>0 and u2.MeanGender='female'"
+                                     " UNION ALL SELECT COUNT(u3.Rating) AS count, 'Neutral' FROM data_scr_userinfo u3 WHERE u3.Rating=0 and u3.MeanGender='female'")
+        df = pd.DataFrame(result)
+        #print(df)
+        graphics.showPieChart(df[0], df[1], "Sentiment of Female Twitter User","FemnaleStatistic.png")
+
+        result = sql.selectStatement("SELECT COUNT(u1.Rating) AS count, 'Negative' as type FROM data_scr_userinfo u1 WHERE u1.Rating<0 and u1.MeanGender='male' "
+                                     "UNION ALL SELECT COUNT(u2.Rating) AS count, 'Positive'FROM data_scr_userinfo u2 WHERE u2.Rating>0 and u2.MeanGender='male'"
+                                     " UNION ALL SELECT COUNT(u3.Rating) AS count, 'Neutral' FROM data_scr_userinfo u3 WHERE u3.Rating=0 and u3.MeanGender='male'")
+        df = pd.DataFrame(result)
+        graphics.showPieChart(df[0], df[1], "Sentiment of Male Twitter User","MaleStatistic.png")
+
+        #print(df)
+
+        result = sql.selectStatement("SELECT COUNT(u1.FAge) AS count, 'Classified' as type FROM data_scr_userinfo u1 WHERE u1.FAge!='-1' UNION ALL SELECT COUNT(u2.FAge) AS count, 'Unclassified'FROM data_scr_userinfo u2 WHERE u2.FAge='-1'")
+        df = pd.DataFrame(result)
+        graphics.showPieChart(df[0], df[1], "Age Classification of Users", "AgeClassificationStatistic.png")
+
+        #print(df)
+
+        result = sql.selectStatement("SELECT * FROM data_scr_age_classes")
+        df = pd.DataFrame(result)
+        graphics.showBarchart(df[0],df[1],"User","User per Age Class","AgeClassUserStatistic.png")
+
+        result = sql.selectStatement("SELECT Continent, TweetCount from data_scr_continent_statistic where TweetCount>100")
+        df = pd.DataFrame(result)
+        graphics.showPieChart(df[1], df[0], "Continental Overview of Alcohol related Tweets", "ContinentOverviewTweetCount.png")
+
+        result = sql.selectStatement("SELECT CountryName,PosSentiment,NegSentiment*-1 FROM `data_scr_country_statistic` order by TweetCount desc limit 15 ")
+        df = pd.DataFrame(result)
+        graphics.showDoubleBarchart(df[1],df[2],df[0],"Positive,","Negative","Sentiment per Country Top 15","SentimentCountry.png")
     print("Data management done...")

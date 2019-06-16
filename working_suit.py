@@ -1,4 +1,6 @@
-import re
+import countries as country
+
+
 
 class WorkingSuit():
     def normalizeTwitterImageName(self,url):
@@ -38,4 +40,42 @@ class WorkingSuit():
             return "male"
         else:
             return Gender
+
+    def checkIfCountryIsInEurope(self,countryCode):
+        for items in country.countries:
+            if(countryCode==items['code']):
+               if(items['timezones'][0].split("/")[0]=="Europe"):
+                   return True,items['name']
+               else:
+                   return False,items['name']
+
+        return False,"NF"
+
+    def getContinetalInfo(self,countryCode):
+        for items in country.countries:
+            if(countryCode == items['code']):
+                return True,items['timezones'][0].split("/")[0]
+        return False,None
+
+    def getAgeClass(self, age):
+        if(age<=2):
+            return "Baby"
+        elif((age>2) and (age<14)):
+            return "Child"
+        elif((age>=14) and (age<20)):
+            return "Teenager"
+        elif ((age >= 20) and (age < 35)):
+            return "Young Adults"
+        elif ((age >= 35) and (age < 50)):
+            return "Adults"
+        elif ((age >= 50) and (age < 65)):
+            return "Older Adults"
+        elif ((age >= 65)):
+            return "Seniors"
+        else:
+            return "Undefined"
+
+
+
+
 

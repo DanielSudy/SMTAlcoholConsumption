@@ -29,7 +29,11 @@ class UserDB():
             # relation constraint in user_tweets. Because it only works with unique values?!
             
             self.c.execute('''CREATE TABLE tweets
-                (user_id Int NOT NULL UNIQUE, content Varchar(240) NOT NULL, country Varchar(10))''')
+                (user_id Int NOT NULL UNIQUE,
+                gender Varchar(50),
+                age Int,
+                content Varchar(240) NOT NULL,
+                country Varchar(10))''')
             self.c.execute('''CREATE TABLE user_tweets
                 (user_id Int NOT NULL,
                  content Varchar(240) NOT NULL)''')
@@ -56,11 +60,15 @@ class UserDB():
             self.conn = sqlite3.connect(db_file)
             self.c = self.conn.cursor()
 
+
         # self.c.execute("PRAGMA foreign_keys = ON")
         self.conn.isolation_level = None # for undoing changes
         
     def insert_tweet(self, user_id, content, country):
         self.c.execute("INSERT INTO tweets(user_id, content, country) VALUES(?,?,?)", (user_id, content, country))
+        
+    def insert_tweet_full(self, user_id, gender, age, content, country):
+        self.c.execute("INSERT INTO tweets(user_id, gender, age, content, country) VALUES(?,?,?,?,?)", (user_id, gender, age, content, country))
         
     def insert_user_tweet(self, user_id, content):
         self.c.execute("INSERT INTO user_tweets(user_id, content) VALUES(?,?)", (user_id, content))
@@ -143,6 +151,10 @@ class UserDB():
     def get_tweets_of_user(self, user_id):
         tweets = self.c.execute("SELECT content FROM user_tweets WHERE user_tweets.user_id=?", (user_id,))
         return [tweet[0] for tweet in tweets]
+        
+    def get_user_tweets(self):
+        tweets = self.c.execute("SELECT * from user_tweets")
+        return tweets
         
     # create a dict for easier access!
     def get_sentiment_data(self):

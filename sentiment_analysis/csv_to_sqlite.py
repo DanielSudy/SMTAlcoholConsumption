@@ -7,8 +7,8 @@ from db_stuff import UserDB
 
 db = UserDB("main_alc.db")
 
-with open("data_scr_userinfo.csv") as csv_file:
+with open("data_scr_userinfo_new.csv") as csv_file:
     r = csv.reader(csv_file, delimiter=',')
     for row in r:
-        db.insert_tweet(row[0], "", "") #only use user_id, its somewhat wasteful but whatever
+        db.insert_tweet_full(row[0], row[4], row[5], "", "") #somewhat wasteful but whatever
 db.save_changes()

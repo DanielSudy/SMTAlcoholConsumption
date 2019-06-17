@@ -60,7 +60,6 @@ class UserDB():
             self.conn = sqlite3.connect(db_file)
             self.c = self.conn.cursor()
 
-
         # self.c.execute("PRAGMA foreign_keys = ON")
         self.conn.isolation_level = None # for undoing changes
         
@@ -159,7 +158,7 @@ class UserDB():
     # create a dict for easier access!
     def get_sentiment_data(self):
         col_names = self.c.execute("PRAGMA table_info(user_sentiment)")
-        data = self.c.execute("SELECT * FROM user_sentiment WHERE alcohol_cnt <= 100 AND timeline_cnt > 3000 AND timeline_cnt < 3500") # filter out spam
+        data = self.c.execute("SELECT * FROM user_sentiment WHERE alcohol_cnt <= 130 AND timeline_cnt > 3000 AND timeline_cnt < 3500") # filter out spam
         return query_to_dict(data)
     
     def __del__(self):

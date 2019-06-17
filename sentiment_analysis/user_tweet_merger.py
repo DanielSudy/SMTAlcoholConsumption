@@ -1,7 +1,7 @@
 from db_stuff import UserDB
 
 db_dst = UserDB("main_alc.db")
-db_src = UserDB("src.db")
+db_src = UserDB("daniel.db")
 
 tweets = db_src.get_user_tweets()
 for tweet in tweets:

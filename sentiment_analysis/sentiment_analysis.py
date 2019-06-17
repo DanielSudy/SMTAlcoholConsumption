@@ -43,7 +43,7 @@ def is_alcohol_content(tweet):
         
 
 if __name__ == '__main__':
-    db = UserDB("alc_tweets.db")
+    db = UserDB("main_alc.db")
     # allow emoticons
     p.set_options(p.OPT.EMOJI)
     af = Afinn(emoticons=True)

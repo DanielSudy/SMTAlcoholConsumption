@@ -17,8 +17,6 @@ from mysql.connector import errorcode
 import matplotlib.pyplot as plt
 
 
-
-
 pd.set_option('display.width', 400)
 pd.set_option('display.max_colwidth', -1)
 pd.set_option('display.max_columns', 10)
@@ -119,9 +117,6 @@ class Storage():
             print("Start SQL processing...")
             print("=======================")
 
-            # delte Databse
-            #sql.deleteTableContent("data_scr_tweets")
-
 
             query = "INSERT INTO data_scr_tweets(CreationDate,AccountCreated,TweetID,UserName,UserID,PorfilPictureURL," \
                     "Gender,UserFollowerCount,UserFriendCount,UsedDevice,Tweet,ReplayID,CountryName," \
@@ -129,8 +124,6 @@ class Storage():
                     "VALUES(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)"
             count_row = pdstruct.shape[0]
             for i in range(0, count_row):
-                #print(genderDedector.get_gender(str(pdstruct['user'].values[i]).split(" ")[0]))
-                #print(str(pdstruct['user'].values[i]))
 
                 args = (
                 str(pdstruct['created'].values[i]),str(pdstruct['account_created'].values[i]), str(pdstruct['id'].values[i]), str(pdstruct['user'].values[i]),str(pdstruct['user_id'].values[i]),
@@ -238,25 +231,22 @@ if __name__ == '__main__':
     #Control Variables
 
     do_general_tweet_db_stoarage=False #Just for initial
-    do_face_reco = False
+    do_face_reco = True
     do_graphical_analysis = True
-    do_user_db_exctraction = False
-    do_country_db_extraction = False
-    do_tweets_per_country_db_extraction = False
+    do_user_db_exctraction = True
+    do_country_db_extraction = True
+    do_tweets_per_country_db_extraction = True
     do_genearte_import_file=True
-    do_generate_continent_statistic=False
+    do_generate_continent_statistic=True
     do_generate_age_classes = True
-
-
-    #WFile to handle
-    pdstruct = jHandler.setupDataStrcuture("livetweets_abImport.txt")
-    print("There are "+str(pdstruct.shape[0])+" rows in dataframe")
 
 
 
     # Write the dataframe to MySQL database
     # ===================================================================================================================
     if(do_general_tweet_db_stoarage==True):
+        pdstruct = jHandler.setupDataStrcuture("livetweets_abImport.txt")
+        print("There are " + str(pdstruct.shape[0]) + " rows in dataframe")
         textAnalyzer.start(pdstruct)
         storage.storeToDatabase(sql,pdstruct)
 
@@ -264,7 +254,7 @@ if __name__ == '__main__':
     #Create user statistics table
     # ===================================================================================================================
     if(do_user_db_exctraction==True):
-        print("========DO User Extraction")
+        print("========Do User Extraction")
         sqlUserTable="CREATE TABLE IF NOT EXISTS `data_scr_userinfo` (`UserID` int(100) NOT NULL," \
                  "`UserName` varchar(255) NOT NULL," \
                  "`NGender` varchar(50) NOT NULL," \
@@ -292,7 +282,7 @@ if __name__ == '__main__':
     # Create user countries
     # ===================================================================================================================
     if(do_country_db_extraction == True):
-        print("========DO User Country Extraction")
+        print("========Do User Country Extraction")
         sqlUserCountries ="CREATE TABLE IF NOT EXISTS `data_scr_usercountries` (`UserID` int(100) NOT NULL," \
                               "`CountryName` varchar(255) NOT NULL," \
                               "`CountryCode` varchar(20) NOT NULL," \
@@ -317,7 +307,7 @@ if __name__ == '__main__':
     # Create country statistics table
     # ===================================================================================================================
     if (do_tweets_per_country_db_extraction == True):
-        print("========DO Country Statistics")
+        print("========Do Country Statistics")
         sqlCountryStatistic ="CREATE TABLE IF NOT EXISTS `data_scr_country_statistic` (`CountryCode` varchar(20) NOT NULL," \
                              "`CountryName` varchar(255) NOT NULL," \
                              "`PosSentiment` int(11) NOT NULL," \
@@ -333,7 +323,6 @@ if __name__ == '__main__':
         query = "INSERT INTO data_scr_country_statistic (CountryCode, CountryName, TweetCount,NegSentiment,PosSentiment) VALUES (%s,%s,%s,%s,%s)" \
                 " ON DUPLICATE KEY UPDATE TweetCount=VALUES(TweetCount),PosSentiment=VALUES(PosSentiment),NegSentiment=VALUES(NegSentiment)"
         for row in result:
-            #print(str(row[0])+"-"+str(row[1])+"-"+str(row[2])+"-"+str(row[3])+"-"+str(row[4]))
             args = (str(row[0]), str(row[1]), str(row[2]), str(row[3]), str(row[4]))
             res = sql.writeStatement(query, args)
             if (res != -1):
@@ -343,7 +332,7 @@ if __name__ == '__main__':
     # Create continent statistics table
     # ===================================================================================================================
     if (do_generate_continent_statistic == True):
-        print("========DO Continent Statistics")
+        print("========Do Continent Statistics")
         sqlCountryStatistic = "CREATE TABLE IF NOT EXISTS `data_scr_continent_statistic` (`Continent` varchar(100) NOT NULL," \
                               "`PosSentiment` int(11) NOT NULL," \
                               "`NegSentiment` int(11) NOT NULL," \
@@ -387,7 +376,7 @@ if __name__ == '__main__':
     #Do the face recognition
     # ===================================================================================================================
     if(do_face_reco==True):
-        print("========DO Face Recognition")
+        print("========Do Face Recognition")
         result = sql.selectStatement("Select UserID,ProfilPictureURL,NGender from `data_scr_userinfo` where FAge=0")
         NotIdentified=0
         counter=0
@@ -435,7 +424,7 @@ if __name__ == '__main__':
     # Create age classes out of user statistics
     # ===================================================================================================================
     if(do_generate_age_classes==True):
-        print("========DO Create Age Classes")
+        print("========Do Create Age Classes")
         sqlAgeClassStatistic = "CREATE TABLE IF NOT EXISTS `data_scr_age_classes` (`ClassName` varchar(100) NOT NULL," \
                               "`MaleCnt` int(11) NOT NULL," \
                               "`FemaleCnt` int(11) NOT NULL," \
@@ -485,17 +474,17 @@ if __name__ == '__main__':
     # Create import fiel for heatmapper
     # ===================================================================================================================
     if(do_genearte_import_file==True):
-        print("========DO Heatmap File Creation")
+        print("========Do Heatmap File Creation")
         result = sql.selectStatement("SELECT CountryName,TweetCount,PosSentiment,NegSentiment FROM `data_scr_country_statistic` where CountryName!=''")
         if(result!=-1):
-            jHandler.writeToCountryFile("countryMap.txt",result)
+            jHandler.writeToCountryFile("Heatmapper File\countryMap.txt",result)
 
 
     #ANALYSIS AND GRAPHIC SECTION
     #===================================================================================================================
 
     if (do_graphical_analysis == True):
-        print("========DO Grahpic Analysis")
+        print("========Do Grahpic Analysis")
 
         result=sql.selectStatement("SELECT MeanGender,count(MeanGender) AS GenderCount FROM data_scr_userinfo GROUP BY MeanGender")
         df = pd.DataFrame(result)

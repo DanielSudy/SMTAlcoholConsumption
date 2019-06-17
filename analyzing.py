@@ -7,7 +7,7 @@ import datetime
 
 
 fig_size = plt.rcParams["figure.figsize"]
-fig_size[0] = 10
+fig_size[0] = 12
 fig_size[1] = 8
 plt.rcParams["figure.figsize"] = fig_size
 imgFolder="Graphics/"
@@ -16,6 +16,7 @@ class GraphicAnalyzer():
 
     def showBarchart(self,df_key, df_counts,yLabel,title,filename):
         plt.clf()
+        plt.gcf().subplots_adjust(bottom=0.15)
         objects = df_key
         y_pos = np.arange(len(objects))
         performance = df_counts
@@ -30,17 +31,16 @@ class GraphicAnalyzer():
 
     def showDoubleBarchart(self,data1,data2,x,LabelD1,LabelD2,title,filename):
         plt.clf()
-
+        plt.gcf().subplots_adjust(bottom=0.20)
         ind = np.arange(len(data1))
         width = 0.35
         plt.bar(ind, data1, width, label=LabelD1)
         plt.bar(ind + width, data2, width,
                 label=LabelD2)
-
         plt.ylabel('Tweets')
         plt.title(title)
 
-        plt.xticks(ind + width / 2, x,rotation='vertical',fontsize=6)
+        plt.xticks(ind + width / 2, x,rotation='vertical',fontsize=10)
         plt.legend(loc='best')
         #plt.show()
         plt.savefig(imgFolder + filename, block=True)
@@ -49,6 +49,7 @@ class GraphicAnalyzer():
 
     def showPieChart(self,data, lables,title,filename):
         plt.clf()
+        plt.gcf().subplots_adjust(bottom=0.15)
         rcParams['axes.titlepad'] = 25
         colors = ["#1f77b4", "#ff7f0e", "#2ca02c", "#d62728", "#8c564b"]
         explode = [0.1] * len(data)

@@ -521,7 +521,7 @@ if __name__ == '__main__':
         df = pd.DataFrame(result)
         graphics.showPieChart(df[1], df[0], "Continental Overview of Alcohol related Tweets", "ContinentOverviewTweetCount.png")
 
-        result = sql.selectStatement("SELECT CountryName,PosSentiment,NegSentiment*-1 FROM `data_scr_country_statistic` order by TweetCount desc limit 15 ")
+        result = sql.selectStatement("SELECT CountryName, (PosSentiment/TweetCount) as PosSemtiment, ((NegSentiment/TweetCount)*-1) as NegSemtimen  FROM `data_scr_country_statistic` order by TweetCount desc limit 30")
         df = pd.DataFrame(result)
-        graphics.showDoubleBarchart(df[1],df[2],df[0],"Positive,","Negative","Sentiment per Country Top 15","SentimentCountry.png")
+        graphics.showDoubleBarchart(df[1],df[2],df[0],"Positive,","Negative","Sentiment per Country Top 30","SentimentCountry.png")
     print("Data management done...")

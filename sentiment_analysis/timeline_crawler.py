@@ -11,9 +11,15 @@ if __name__ == '__main__':
     twitter_api = tweepy.API(twitter_auth, wait_on_rate_limit=True, wait_on_rate_limit_notify=True)
     
     user_ids = db.get_distinct_users()
-    for i in range(int(len(user_ids)/2), len(user_ids)):
+    #for i in range(int(len(user_ids)/2), len(user_ids)):
+    #Last 4905
+    #Last 5023
+    #Last 5062
+    #Last 5293
+    #Last 5440
+    for i in range(5293, len(user_ids)):
         id = user_ids[i]
-        print("Searching for user id: " + str(id))
+        print("Searching for user id: " + str(id)+"->Index: "+str(i))
         finished = False
         # catching twitter api errors
         while not finished:

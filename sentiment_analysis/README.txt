@@ -23,7 +23,11 @@ Then plot final results with matplotlib
 - Database management (SQLite) is done in (db_stuff.py)
 
 - Merging of timelines (user_tweet_merger.py)
-As two of us had been fetching timelines simultanuously we had to merge them afterwards.
+As two of us had been fetching timelines simultanuously we had to merge them afterwards
+
+- Importing the exported MySQL tables to the SQLite Data base (csv_to_sqlite.py)
+As we used MySQL for our first analysis we had to import the desired data to our SQLite
+Database. One can import the usr_src_info table as csv with this script to the given database.
 
 ---------------------------------------------------------------------------------------------------------------------
 Please note that the first 4 Python scripts depend on the respective previous one in order to be able to be executed.
